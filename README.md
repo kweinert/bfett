@@ -5,6 +5,7 @@
 ```mermaid
 graph TD;
     A[lsx_trades] --> B[bfett-dbt];
+    E[bfett.processes] --> B;
     B --> D[bfett];
     C[bfett-front] --> D;
 ```
