@@ -7,12 +7,12 @@ ORIGINAL_DIR=$(pwd)
 # $0 ist der Pfad zum Skript; realpath löst Symlinks auf
 SCRIPT_PATH=$(realpath "$0")
 SCRIPT_DIR=$(dirname "$SCRIPT_PATH")
-WORK_DIR=$(dirname "$SCRIPT_DIR")
+#WORK_DIR=$(dirname "$SCRIPT_DIR")
 
 DBT_IMAGE="bfett-dbt"
 FRONT_IMAGE="bfett-front"
 TAG="latest"
-HOST_DIR="$WORK_DIR"
+HOST_DIR="$SCRIPT_DIR"
 CONTAINER_DIR="/app"
 
 # Logger-Funktion definieren
@@ -68,7 +68,7 @@ check_docker() {
 
 build_image() {
 	check_docker
-	BUILD_DIR="$WORK_DIR/$IMAGE"
+	BUILD_DIR="$SCRIPT_DIR/$IMAGE"
 	if [ ! -d "$BUILD_DIR" ]; then
 		log "Error: Build directory $BUILD_DIR does not exist"
 		cd "$ORIGINAL_DIR"
@@ -90,20 +90,7 @@ build_image() {
 
 run_docker() {
 	if [ "$IMAGE" = "$DBT_IMAGE" ]; then
-	    # Prüfen, ob das Verzeichnis existiert
-		if [ ! -d "$WORK_DIR" ]; then
-			log "Error: Directory $WORK_DIR does not exist"
-			cd "$ORIGINAL_DIR"
-			exit 1
-		fi
-
-		# In das Arbeitsverzeichnis wechseln
-		cd "$WORK_DIR" || {
-			log "Error: Could not change into $WORK_DIR"
-			cd "$ORIGINAL_DIR"
-			exit 1
-		}
-
+	  
 		# Standardwerte
 		mkdir -p "$HOST_DIR/data"
 		mkdir -p "$HOST_DIR/database"
@@ -127,20 +114,6 @@ run_docker() {
 			"$IMAGE" \
 			"$cmd"
 	elif [ "$IMAGE" = "$FRONT_IMAGE" ]; then
-		# Prüfen, ob das Verzeichnis existiert
-		if [ ! -d "$WORK_DIR" ]; then
-			log "Error: Directory $WORK_DIR does not exist"
-			cd "$ORIGINAL_DIR"
-			exit 1
-		fi
-
-		# In das Arbeitsverzeichnis wechseln
-		cd "$WORK_DIR" || {
-			log "Error: Could not change into $WORK_DIR"
-			cd "$ORIGINAL_DIR"
-			exit 1
-		}
-
 		# Standardwerte
 		mkdir -p "$HOST_DIR/data"
 		mkdir -p "$HOST_DIR/database"
