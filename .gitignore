@@ -1,0 +1,8 @@
+bfett-dbt/
+bfett-front/
+data/
+database/
+logs/
+seeds/
+backup/
+
