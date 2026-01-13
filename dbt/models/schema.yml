@@ -1,0 +1,148 @@
+version: 2
+
+seeds:
+  - name: isin_info
+    description: "Stammdaten der an der LSX handelbaren Wertpapiere."
+    columns:
+      - name: wkn
+        description: "Die WKN ist eine nationale Kennnummer, die hauptsächlich in Deutschland und in der Vergangenheit auch in Österreich und der Schweiz verwendet wurde. Sie ist kein international standardisiertes System. Wird in Deutschland von der WM Datenservice GmbH vergeben."
+      - name: isin
+        description: "International Securities Identification Number"
+      - name: name
+        description: "Name des Wertpapiers"
+      - name: shortcode 
+        description: "Shortcode / Ticker: Ist das Handels-Symbol, das an einer bestimmten Börse verwendet wird (DBK an der XTRA). Ein Wertpapier mit derselben ISIN kann an verschiedenen Börsen unterschiedliche Ticker-Symbole haben."
+      - name: gattung
+        description: "Entweder AKTIE, EXCHANGE, FONDS oder BONDS."
+      - name: index_membership
+        description: "Ein Wert aus folgender Liste: 'DAX', 'MDAX', 'SDAX', 'TecDAX', 'Eurostoxx 50', 'Dow Jones 30', 'NASDAQ 100', 'Xetra ETFS', 'DAX-ETFs', 'Investmentfonds', 'sonstige ETFs', 'sonstige inländische Aktien', 'sonstige US-Aktien', 'sonstige Auslandsaktien', 'sonstige US Aktien', 'Anleihen', NA"
+        
+  - name: invest_ideas
+    description: "Zuordnung von ISIN zu Anlage-Ideen. Von Hand zu pflegen."
+    columns:
+      - name: isin
+        description: "International Securities Identification Number"
+      - name: category
+        description: "Asset-Klasse des Wertpapiers bzw. Anlage-Idee."
+     
+  - name: active_positions
+    description: "Dieses Modell enthält die aktiven Positionen des Portfolios. Wird aus transactions in einem DBT vorgelagertem Schritt berechnet."
+    columns:
+      - name: isin
+        description: "International Securities Identification Number"
+      - name: portfolio
+        description: "Name des Portfolios"
+      - name: size
+        description: "Anzahl Wertpapiere"  
+      - name: buy_date
+        description: "Kaufdatum"
+      - name: buy_price
+        description: "Kaufpreis inkl. Gebühren"
+        
+  - name: closed_trades
+    description: "Dieses Modell enthält die abgeschlossenen Trades. Wird aus transactions in einem DBT vorgelagertem Schritt berechnet."
+    columns:
+      - name: isin
+        description: "International Securities Identification Number"
+      - name: portfolio
+        description: "Name des Portfolios"
+      - name: size
+        description: "Anzahl Wertpapiere"  
+      - name: buy_date
+        description: "Kaufdatum"
+      - name: buy_price
+        description: "Kaufpreis inkl. Gebühren"
+      - name: sell_date
+        description: "Verkaufsdatum"
+      - name: sell_price
+        description: "Verkaufspreis inkl. Gebühren"
+        
+  - name: cash
+    description: "Dieses Modell enthält die Cashpositionen. Wird aus transactions in einem DBT vorgelagertem Schritt berechnet."
+    columns:
+      - name: date
+        description: "Datum"
+      - name: cash
+        description: "Cashposition" 
+      - name: portfolio
+        description: "Name des Portfolios"
+        
+  - name: transactions
+    description: "Alle Transaktionen im Portfolio. Diese Datei ist von Hand zu pflegen."
+    columns: 
+      - name: isin
+        description: "International Securities Identification Number"
+      - name: portfolio
+        description: "Name des Portfolios"
+      - name: size
+        description: "Anzahl Wertpapiere"  
+      - name: date
+        description: "Transaktionsdatum"
+      - name: name
+        description: "Name des Wertpapiers. Wird nicht weiter verwendet."
+      - name: amount
+        description: "Gesamthöhe der Transaktion einschließlich Gebühren."
+      - name: broker
+        description: "Identifier des Brokers. Wird derzeit nicht verwendet."
+      - name: type
+        description: "Entweder 'buy', 'sell', 'deposit' (Einzahlung), 'withdrawal' (Auszahlung), 'other' (Zinsen, Dividende, Steuerkorrekturen)"
+
+models:
+  - name: stg_trades
+    description: "Dieses Modell enthält die Handelsdaten der [Lang & Schwarz Exchange](https://www.ls-x.de/de/download)."
+    columns:
+      - name: isin
+        description: "International Securities Identification Number"
+      - name: trade_time
+        description: "Handelszeitpunkt"
+      - name: size
+        description: "Anzahl Wertpapiere"
+      - name: price
+        description: "Preis"
+      - name: currency
+        description: "Währung"
+      - name: load_timestamp
+        description: "Datum des Einlesens"
+  
+  - name: int_trades_weekly
+    description: "Dieses Modell aggregiert die Handelsdaten (stg_trades) auf wöchentlicher Ebene und ermittelt die letzten verfügbaren Preise."
+    columns:
+      - name: isin
+        description: "International Securities Identification Number"
+      - name: calendar_week
+        description: "Kalenderwoche im Format %Y-%w"    
+      - name: close
+        description: "Letzter verfügbarer Preis an LSX für die ISIN in der Kalenderwoche"  
+      - name: previous_close
+        description: "Letzter verfügbarer Preis an LSX für die ISIN in der vorhergehenden Kalenderwoche"  
+      
+  - name: active_positions_weekly
+    description: "Dieses Modell verknüpft aktuelle Positionen (active_positions) mit den wöchentlichen Schlusskursen (int_trades_weekly). Es wird verwendet vom Dashboard."
+    columns:
+      - name: isin
+        description: "International Securities Identification Number"
+      - name: name
+        description: "Name des Wertpapiers"
+      - name: category
+        description: "Asset-Klasse des Wertpapiers"
+      - name: calendar_week
+        description: "Kalenderwoche im Format %Y-%w"    
+      - name: size
+        description: "Anzahl Wertpapiere, die in der angegebenen Kalenderwoche gehalten wurden"  
+      - name: buy_in
+        description: "Kaufpreis der gesamten Position inkl. Gebühren	"
+      - name: close_value
+        description: "Wert der gesamten Position an LSX für die ISIN in der Kalenderwoche"  
+      - name: previous_close_value
+        description: "Wert der gesamten Position an LSX für die ISIN in der vorhergehenden Kalenderwoche"  
+
+  - name: cash_weekly
+    description: "Cash am Ende der Kalenderwochen."
+    columns:
+      - name: portfolio
+        description: "Name des Portfolios"
+      - name: cash 
+        description: "Verfügbares Bargeld im Portfolio."
+      - name: calendar_week
+        description: "Kalenderwoche nach dem ISO 8601-Standard."
+        

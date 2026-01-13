@@ -1,0 +1,24 @@
+services:
+  dbt:
+    build: ./dbt
+    container_name: dbt-container
+    volumes:
+      - ./dbt:/usr/app
+      - ~/.dbt:/root/.dbt
+    env_file:
+      - .env
+    command: dbt run && dbt test
+    restart: on-failure
+    # Für periodische Ausführung:
+    # command: watch -n 3600 "dbt run && dbt test"
+
+  shiny:
+    build: ./shiny
+    container_name: shiny-app
+    ports:
+      - "3838:3838"
+    volumes:
+      - ./shiny-app:/srv/shiny-server/
+    depends_on:
+      - dbt
+    restart: unless-stopped

@@ -1,0 +1,12 @@
+# dbt specific
+.user.yml
+/target/
+/dashboard/
+/dbt_packages/
+/logs/
+*.log
+/data/
+/database/
+*.duckdb
+*.wal
+
