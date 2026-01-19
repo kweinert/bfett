@@ -3,7 +3,7 @@ services:
     build: ./shiny
     container_name: shiny-app
     ports:
-      - "3838:3838"
+      - "3839:3838"
     volumes:
       - ../files/database:/app/database
     restart: unless-stopped
