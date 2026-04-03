@@ -2,6 +2,7 @@
 
 ## Überblick
 
-`bfett.sh` ist ein CLI für das Docker-Projekt mit den Kommandos `build` und `run`. 
+`bfett.sh` ist ein CLI für das Docker-Projekt mit den Kommandos `build` (erzeugt Docker Image),  `run` (startet Docker Container) und `make` (ruft make im Docker-Image auf). 
 
-Innerhalb des Containers kann make aufgerufen werden mit den Targets `ingest`(aktualisiert Daten) und `transform` (aktualisiert Datenbank)
+Der make-Befehl kennt die Targets `ingest`(aktualisiert Daten) und `transform` (aktualisiert Datenbank).
+
