@@ -8,6 +8,6 @@ Der make-Befehl kennt die Targets `ingest`(aktualisiert Daten) und `transform` (
 
 ## Next Steps
 
-[ ] .env File for single point of config
-[ ] make ingest/lsx_trades.sh work (and transform the csv.gz to parquet)
-[ ] duckdb gsheets extension for ingest/transactions
+    [ ] .env File for single point of config
+    [ ] make ingest/lsx_trades.sh work (and transform the csv.gz to parquet)
+    [ ] duckdb gsheets extension for ingest/transactions
