@@ -76,6 +76,8 @@ download_csv_gz <- function(url, dest_path) {
 convert_to_parquet <- function(csv_gz_path, parquet_path) {
   tryCatch({
     dt <- fread(csv_gz_path)
+	if(!inherits(dt, "data.table") || nrow(dt)==0) stop("error reading ", csv_gz_path)
+
     write_parquet(dt, parquet_path)
     message("Converted: ", basename(csv_gz_path), " -> ", basename(parquet_path))
     
