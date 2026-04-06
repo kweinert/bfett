@@ -2,7 +2,8 @@
 
 library(jsonlite)
 library(httr)
-library(data.table)
+library(data.table) 
+library(R.utils) # required by data.table to read .gz directly
 library(nanoparquet)
 
 ensure_directories <- function(raw_dir, tmp_dir) {
