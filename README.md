@@ -26,8 +26,7 @@ Für Freitag, 4.4.2025, hat der späteste Trade einen Zeitstempel von 14 Uhr.
 - [x] .env File for single point of config
 - [x] make ingest/lsx_trades.sh work (and transform the csv.gz to parquet)
 - [ ] use gsheets for ingest/transactions
-- [ ] Umgang mit Aktiensplits testen
-- [ ] Daten für Candle-Sticks
+- [ ] Refactor as Mono-Repo
 - [ ] IRR für jede Woche
 
 ### Version 0.3
@@ -52,3 +51,5 @@ Für Freitag, 4.4.2025, hat der späteste Trade einen Zeitstempel von 14 Uhr.
 - [ ] update_lsx_univ.sh
 - [ ] [edgarWebR](https://cran.r-project.org/web/packages/edgarWebR/vignettes/edgarWebR.html) als Datenquelle erschließen
 - [ ] discount / premium zones bestimmen für einzelne Isin
+- [ ] Umgang mit Aktiensplits testen
+- [ ] Daten für Candle-Sticks
