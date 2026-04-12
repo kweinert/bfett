@@ -149,7 +149,22 @@ LSX_TMP_DIR=/tmp/lsx_trades
    - Sonst: `download_csv_gz()` → `convert_to_parquet()` → CSV.GZ löschen
 7. Aufräumen: Temp-Verzeichnis leeren
 
-**Konfiguration:** `options(warn = 1)` aktiviert sofortige Warnungsausgabe
+**Konfiguration:**
+- `suppressPackageStartupMessages({ library(...) })` für saubere Konsolenausgabe
+- `options(warn = 1)` aktiviert sofortige Warnungsausgabe
+
+---
+
+### Schritt 7: Fehlerbehandlung
+
+**Zentrale Fehlerbehandlung in main():**
+```r
+for (i in seq_len(nrow(assets))) tryCatch({
+  # Download und Konvertierung
+}, error = function(e) warning("  FAILED: ", e$message, call. = FALSE))
+```
+
+**Warnungen:** `call. = FALSE` unterdrückt Positionsangaben in der Ausgabe.
 
 ---
 
@@ -163,8 +178,9 @@ LSX_TMP_DIR=/tmp/lsx_trades
 | Bestehende Parquet überschreiben | Datenverlust | Prüfung vor Konvertierung, nur neue Dateien |
 | Temp-Verzeichnis voll | Download fehlgeschlagen | Retry-Logik, ggf. ältere Temp-Dateien löschen |
 | Daten enthalten ältere Trades als Dateiname suggeriert | Datenkonsistenz verletzt | Datumsvalidierung: max(tradeTime) vs Dateiname, Datei ablehnen wenn älter |
+| Inkonsistentes Dateinamenformat | Falsche Datums-Extraktion | Erwartetes Format: `lsx_trades_YYYY-mm-dd.*` |
 
-## 7. Checkliste
+## 8. Checkliste
 
 - [x] `.env` Datei mit Config-Variablen erstellen
 - [x] `ensure_directories()` Funktion erstellen
@@ -177,3 +193,7 @@ LSX_TMP_DIR=/tmp/lsx_trades
 - [x] Datumsvalidierung in `convert_to_parquet()` hinzufügen
 - [x] Inkrementeller Download (Cutoff-Datum) implementieren
 - [x] `options(warn = 1)` für sofortige Warnungsausgabe
+- [x] `suppressPackageStartupMessages()` für saubere Konsolenausgabe
+- [x] `call. = FALSE` für Warnungen ohne Positionsangabe
+- [x] Zentrale `tryCatch()` in main() statt Einzelfunktionen
+- [x] Datums-Extraktion mit `substr()` und `gsub()` Pipeline

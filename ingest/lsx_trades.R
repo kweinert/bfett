@@ -1,10 +1,12 @@
 #!/usr/bin/env Rscript
 
-library(jsonlite)
-library(httr)
-library(data.table) 
-library(R.utils)
-library(nanoparquet)
+suppressPackageStartupMessages({
+	library(jsonlite)
+	library(httr)
+	library(data.table) 
+	library(R.utils)
+	library(nanoparquet)
+})
 
 options(warn = 1)
 
@@ -20,7 +22,6 @@ ensure_directories <- function(raw_dir, tmp_dir) {
 }
 
 fetch_releases <- function(github_url) {
-  message("Fetching release data from GitHub API...")
   all_releases <- list()
   page <- 1
   per_page <- 100
@@ -47,7 +48,7 @@ fetch_releases <- function(github_url) {
   subset(grepl("\\.csv\\.gz$", browser_download_url))
 
   if (nrow(all_assets) == 0) {
-    warning("No .csv.gz files found in releases.")
+    warning("No .csv.gz files found in releases.", call.=FALSE)
     return(data.frame(name = character(), browser_download_url = character()))
   }
   message("Found ", nrow(all_assets), " .csv.gz assets")
@@ -61,114 +62,85 @@ download_csv_gz <- function(url, dest_path) {
   while (retry_count < max_retries) {
     tryCatch({
       download.file(url, destfile = dest_path, mode = "wb", quiet = TRUE)
-      message("Downloaded: ", basename(dest_path))
       return(TRUE)
     }, error = function(e) {
       retry_count <<- retry_count + 1
       if (retry_count < max_retries) {
-        message("Retry ", retry_count, "/", max_retries, " for ", basename(dest_path))
+        warning("  Retry ", retry_count, "/", max_retries, " for ", basename(dest_path))
       }
     })
   }
-  
-  warning("Failed to download after ", max_retries, " attempts: ", url)
-  return(FALSE)
+  stop("  Failed to download ", url, " after ", max_retries, " attempts: ", url)
 }
 
 convert_to_parquet <- function(csv_gz_path, parquet_path) {
-  tryCatch({
     dt <- fread(csv_gz_path)
 	if(!inherits(dt, "data.table") || nrow(dt)==0) stop("error reading ", csv_gz_path)
 
-    filename_date_str <- substring(basename(csv_gz_path), nchar(basename(csv_gz_path)) - 14, nchar(basename(csv_gz_path)) - 8)
+	csv_gz_name <- basename(csv_gz_path)
+    filename_date_str <- substr(csv_gz_name, nchar(csv_gz_name) - 16, nchar(csv_gz_name) - 7)
     data_date_str <- strftime(max(dt$tradeTime, na.rm = TRUE), format = "%Y-%m-%d")
-    if (data_date_str < filename_date_str) {
-      stop("Data contains trades older than filename date. File rejected.")
-    }
+    if (data_date_str < filename_date_str) 
+		stop("Data contains trade dates ", data_date_str, " older than filename date ", filename_date_str, ". File rejected.")
 
     write_parquet(dt, parquet_path)
-    message("Converted: ", basename(csv_gz_path), " -> ", basename(parquet_path))
-    
-    file.remove(csv_gz_path)
-    message("Deleted: ", basename(csv_gz_path))
-    
-    return(TRUE)
-  }, error = function(e) {
-    warning("Failed to convert ", csv_gz_path, ": ", e$message)
-    if (file.exists(csv_gz_path)) {
-      file.remove(csv_gz_path)
-    }
-    return(FALSE)
-  })
 }
 
 main <- function() {
+  message("Reading configuration")
+  if (!file.exists(".env")) stop("Error: .env file not found.")
   readRenviron(".env")
-  
   github_url <- Sys.getenv("LSX_GITHUB_URL")
   raw_dir <- Sys.getenv("LSX_RAW_DIR")
   tmp_dir <- Sys.getenv("LSX_TMP_DIR")
-  
   if (github_url == "" || raw_dir == "" || tmp_dir == "") {
     stop("Error: Missing required environment variables. Check .env file.")
   }
   
-  if (!file.exists(".env")) {
-    stop("Error: .env file not found.")
-  }
-  
-  message("Starting LSX Trades ingestion...")
-  
-  ensure_directories(raw_dir, tmp_dir)
-  
+  message("Fetching release data from GitHub API...")
   assets <- fetch_releases(github_url)
-  
   if (nrow(assets) == 0) {
-    message("No files to process. Exiting.")
+    warning("No releases to process. Exiting.", call.=FALSE)
     return(invisible(NULL))
   }
   
+  message("Comparing to stored files...")
+  ensure_directories(raw_dir, tmp_dir)
   existing_files <- list.files(raw_dir, pattern = "\\.parquet$", full.names = FALSE)
   if (length(existing_files) > 0) {
-    file_dates <- substring(existing_files, nchar(existing_files) - 14, nchar(existing_files) - 8)
-    cutoff_date <- max(file_dates)
+    cutoff_date <- basename(existing_files) |> gsub("lsx_trades_", "", x=_) |> gsub("\\.parquet$", "", x=_) |> max()
     message("Found existing files. Only processing files newer than: ", cutoff_date)
     url_basenames <- basename(assets$browser_download_url)
-    url_dates <- substring(url_basenames, nchar(url_basenames) - 14, nchar(url_basenames) - 8)
+    url_dates <- substring(url_basenames, nchar(url_basenames) - 16, nchar(url_basenames) - 7)
     assets <- assets[url_dates > cutoff_date, ]
+    if (nrow(assets) == 0) {
+		message("No new releases to process. Exiting.")
+	    return(invisible(NULL))
+	}
   } 
     
-  for (i in seq_len(nrow(assets))) {
-    download_url <- assets$browser_download_url[i]
-    file_name <- basename(download_url)
-    
-    parquet_name <- sub("\\.csv\\.gz$", "\\.parquet", file_name)
-    parquet_path <- file.path(raw_dir, parquet_name)
-    csv_gz_path <- file.path(tmp_dir, file_name)
-    
-    if (file.exists(parquet_path)) {
-      message("Parquet already exists, skipping: ", parquet_name)
-      next
-    }
-    
-    if (!file.exists(csv_gz_path)) {
-      success <- download_csv_gz(download_url, csv_gz_path)
-      if (!success) {
-        next
-      }
-    } else {
-      message("CSV.GZ already exists, skipping download: ", file_name)
-    }
-    
-    convert_to_parquet(csv_gz_path, parquet_path)
-  }
+  # updating
+  for (i in seq_len(nrow(assets))) tryCatch({
+	  download_url <- assets$browser_download_url[i]
+	  message("Adding ", download_url)	
+	  file_name <- basename(download_url)
+	  parquet_name <- sub("\\.csv\\.gz$", "\\.parquet", file_name)
+	  parquet_path <- file.path(raw_dir, parquet_name)
+	  csv_gz_path <- file.path(tmp_dir, file_name)
+	  if (file.exists(csv_gz_path)) 
+		  warning("  using cached download ", csv_gz_path, call.=FALSE)
+	  else 
+		  download_csv_gz(download_url, csv_gz_path)
+	  convert_to_parquet(csv_gz_path, parquet_path)
+	  message("  SUCCESS")
+    }, error = function(e) warning("  FAILED: ", e$message, call.=FALSE)
   
+  # clean up & exit
   tmp_files <- list.files(tmp_dir, pattern = "\\.csv\\.gz$", full.names = TRUE)
   if (length(tmp_files) > 0) {
     message("Cleaning up temp directory...")
     file.remove(tmp_files)
   }
-  
   message("LSX Trades ingestion complete.")
 }
 
