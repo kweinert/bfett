@@ -24,3 +24,23 @@ git config --global credential.helper "!f() { echo password=$(gh auth token); };
 - Conventional commit messages
 - Keep responses concise (1-3 sentences unless detail requested)
 
+## R Coding Best Practices
+
+### Suppress Package Messages
+```r
+suppressPackageStartupMessages({
+  library(jsonlite)
+  library(httr)
+  library(data.table)
+})
+```
+
+### Warnings
+```r
+options(warn = 1)  # Print warnings immediately
+
+warning("message", call. = FALSE)  # Suppress location info
+```
+
+
+
