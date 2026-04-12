@@ -78,6 +78,12 @@ convert_to_parquet <- function(csv_gz_path, parquet_path) {
     dt <- fread(csv_gz_path)
 	if(!inherits(dt, "data.table") || nrow(dt)==0) stop("error reading ", csv_gz_path)
 
+    filename_date_str <- substring(basename(csv_gz_path), nchar(basename(csv_gz_path)) - 14, nchar(basename(csv_gz_path)) - 8)
+    data_date_str <- strftime(max(dt$tradeTime, na.rm = TRUE), format = "%Y-%m-%d")
+    if (data_date_str < filename_date_str) {
+      stop("Data contains trades older than filename date. File rejected.")
+    }
+
     write_parquet(dt, parquet_path)
     message("Converted: ", basename(csv_gz_path), " -> ", basename(parquet_path))
     
@@ -120,9 +126,19 @@ main <- function() {
     return(invisible(NULL))
   }
   
+  existing_files <- list.files(raw_dir, pattern = "\\.parquet$", full.names = FALSE)
+  if (length(existing_files) > 0) {
+    file_dates <- substring(existing_files, nchar(existing_files) - 14, nchar(existing_files) - 8)
+    cutoff_date <- max(file_dates)
+    message("Found existing files. Only processing files newer than: ", cutoff_date)
+    url_basenames <- basename(assets$browser_download_url)
+    url_dates <- substring(url_basenames, nchar(url_basenames) - 14, nchar(url_basenames) - 8)
+    assets <- assets[url_dates > cutoff_date, ]
+  } 
+    
   for (i in seq_len(nrow(assets))) {
-    file_name <- assets$name[i]
     download_url <- assets$browser_download_url[i]
+    file_name <- basename(download_url)
     
     parquet_name <- sub("\\.csv\\.gz$", "\\.parquet", file_name)
     parquet_path <- file.path(raw_dir, parquet_name)

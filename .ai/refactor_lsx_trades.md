@@ -123,7 +123,12 @@ LSX_TMP_DIR=/tmp/lsx_trades
 
 **Output:** Parquet-Datei unter `parquet_path`
 
-**Fehlerfall:** Konvertierung fehlgeschlagen → `warning()`, CSV.GZ löschen, weitermachen
+**Validierung:** Datumsprüfung
+- `filename_date_str`: Datum aus Dateinamen extrahieren (Format `YYYY-mm-dd`)
+- `data_date_str`: `strftime(max(tradeTime), format = "%Y-%m-%d")`
+- Wenn `data_date_str < filename_date_str` → `stop()`, Datei ablehnen
+
+**Fehlerfall:** Konvertierung fehlgeschlagen oder Datumsvalidierung fehlgeschlagen → `warning()`, CSV.GZ löschen, weitermachen
 
 ---
 
@@ -135,7 +140,10 @@ LSX_TMP_DIR=/tmp/lsx_trades
 1. `readRenviron(".env")` aufrufen
 2. `ensure_directories()` aufrufen
 3. Releases via `fetch_releases()` holen
-4. Für jede Datei:
+4. Cutoff-Datum ermitteln: neueste Datei in `LSX_RAW_DIR` via Dateinamen (substring)
+5. Nur Dateien mit Datum > Cutoff verarbeiten
+6. Für jede Datei:
+   - `file_name <- basename(browser_download_url)` verwenden (nicht `name`-Spalte)
    - Prüfen ob `.parquet` bereits existiert → skip
    - Prüfen ob `.csv.gz` in `LSX_TMP_DIR` existiert → skip
    - Sonst: `download_csv_gz()` → `convert_to_parquet()` → CSV.GZ löschen
@@ -152,6 +160,7 @@ LSX_TMP_DIR=/tmp/lsx_trades
 | CSV-Format ändert sich | Konvertierungsfehler | Fehler abfangen, warnen, Datei verwerfen |
 | Bestehende Parquet überschreiben | Datenverlust | Prüfung vor Konvertierung, nur neue Dateien |
 | Temp-Verzeichnis voll | Download fehlgeschlagen | Retry-Logik, ggf. ältere Temp-Dateien löschen |
+| Daten enthalten ältere Trades als Dateiname suggeriert | Datenkonsistenz verletzt | Datumsvalidierung: max(tradeTime) vs Dateiname, Datei ablehnen wenn älter |
 
 ## 7. Checkliste
 
