@@ -23,9 +23,9 @@ Für Freitag, 4.4.2025, hat der späteste Trade einen Zeitstempel von 14 Uhr.
 ## Roadmap / What's new
 
 ### Version 0.4
-- [ ] .env File for single point of config
-- [ ] make ingest/lsx_trades.sh work (and transform the csv.gz to parquet)
-- [ ] duckdb gsheets extension for ingest/transactions
+- [x] .env File for single point of config
+- [x] make ingest/lsx_trades.sh work (and transform the csv.gz to parquet)
+- [ ] use gsheets for ingest/transactions
 - [ ] Umgang mit Aktiensplits testen
 - [ ] Daten für Candle-Sticks
 - [ ] IRR für jede Woche
