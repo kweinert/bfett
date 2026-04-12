@@ -147,7 +147,9 @@ LSX_TMP_DIR=/tmp/lsx_trades
    - Prüfen ob `.parquet` bereits existiert → skip
    - Prüfen ob `.csv.gz` in `LSX_TMP_DIR` existiert → skip
    - Sonst: `download_csv_gz()` → `convert_to_parquet()` → CSV.GZ löschen
-5. Aufräumen: Temp-Verzeichnis leeren
+7. Aufräumen: Temp-Verzeichnis leeren
+
+**Konfiguration:** `options(warn = 1)` aktiviert sofortige Warnungsausgabe
 
 ---
 
@@ -164,10 +166,14 @@ LSX_TMP_DIR=/tmp/lsx_trades
 
 ## 7. Checkliste
 
-- [ ] `.env` Datei mit Config-Variablen erstellen
-- [ ] `ensure_directories()` Funktion erstellen
-- [ ] `fetch_releases()` Funktion erstellen
-- [ ] `download_csv_gz()` Funktion mit 3x Retry erstellen
-- [ ] `convert_to_parquet()` Funktion erstellen
-- [ ] Orchestrierungs-Logik in `ingest/lsx_trades.R` zusammenführen
-- [ ] `ingest/lsx_trades.sh` archivieren oder löschen
+- [x] `.env` Datei mit Config-Variablen erstellen
+- [x] `ensure_directories()` Funktion erstellen
+- [x] `fetch_releases()` Funktion erstellen
+- [x] `download_csv_gz()` Funktion mit 3x Retry erstellen
+- [x] `convert_to_parquet()` Funktion erstellen
+- [x] Orchestrierungs-Logik in `ingest/lsx_trades.R` zusammenführen
+- [x] `ingest/lsx_trades.sh` archivieren oder löschen
+- [x] `basename(browser_download_url)` statt `name`-Spalte verwenden
+- [x] Datumsvalidierung in `convert_to_parquet()` hinzufügen
+- [x] Inkrementeller Download (Cutoff-Datum) implementieren
+- [x] `options(warn = 1)` für sofortige Warnungsausgabe
