@@ -17,6 +17,8 @@ RUN apt-get update && apt-get install -y \
 RUN mkdir -p /usr/local/lib/R/etc && \
     echo "options(repos = c(CRAN = 'https://p3m.dev/cran/__linux__/jammy/latest', duckdb = 'https://duckdb.r-universe.dev'))" >> /usr/local/lib/R/etc/Rprofile.site
 
+RUN R -e "install.packages('pak', repos='https://cloud.r-project.org/')"
+
 RUN R -e "pak::pkg_install(c('data.table', 'rmarkdown', 'tinytest', 'plotly', 'htmltools', 'htmlwidgets', 'flexdashboard', 'DBI', 'duckdb', 'reactable', 'echarts4r', 'shiny', 'bslib'))"
 
 RUN python3 -m venv /opt/lea-venv
