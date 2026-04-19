@@ -17,6 +17,7 @@ RUN apt-get update && apt-get install -y \
 ## R Configuration (Using PPM Binaries)
 RUN R_VERSION=$(R --version | head -n 1 | sed -E 's/.*version ([0-9]+\.[0-9]+).*/\1/') && \
     echo "Detected R version: $R_VERSION" && \
+	mkdir -p /usr/lib/R/etc && \
     echo "options(repos = c(CRAN = 'https://packagemanager.posit.co/cran/__linux__/noble/latest'), pkg.type = 'binary')" >> /usr/lib/R/etc/Rprofile.site && \
     echo "" >> /usr/lib/R/etc/Rprofile.site && \
     echo "# Custom q() that does not ask to save workspace by default" >> /usr/lib/R/etc/Rprofile.site && \
