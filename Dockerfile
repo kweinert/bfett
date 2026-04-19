@@ -28,6 +28,7 @@ COPY dashboard/app.R /home/faucet/dashboard/app.R
 COPY dashboard/rpkgs/ /home/faucet/rpkgs/
 COPY ingest/ /home/faucet/ingest/
 COPY transform/ /home/faucet/transform/
+COPY Makefile /home/faucet/Makefile
 
 RUN chown -R faucet:faucet /home/faucet/
 
