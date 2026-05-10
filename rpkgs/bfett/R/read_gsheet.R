@@ -1,16 +1,13 @@
 #' Read Google Sheet using Service Account
 #'
 #' Reads data from a private Google Sheet using a Service Account JSON key file.
-#' Returns a standard base R data.frame with minimal dependencies.
+#' Uses CSV export endpoint and \code{data.table::fread()} for parsing.
 #'
 #' @param spreadsheet_id Character. Google Spreadsheet ID (the long string in the URL).
-#' @param sheet_name Character. Name of the sheet (tab) to read.
-#'   If NULL, reads the first sheet.
-#' @param range Character. Cell range to read (e.g. "A1:Z1000").
-#'   If NULL, reads all data in the sheet.
+#' @param gid Integer. Sheet grid ID (tab identifier). Default 0 (first sheet).
 #' @param json_key_path Character. Path to the Service Account JSON key file.
 #'
-#' @return A base R data.frame containing the sheet data.
+#' @return A data.table containing the sheet data.
 #'
 #' @importFrom httr POST GET add_headers http_error status_code content
 #' @importFrom jsonlite fromJSON
@@ -23,21 +20,17 @@
 #' \dontrun{
 #'   dat <- read_gsheet(
 #'     spreadsheet_id = "1aBcD1234EfGh5678IjKlMnOpQrStUvWxYz",
-#'     sheet_name     = "Daten",
-#'     range          = "A1:Z500",
+#'     gid            = 0,
 #'     json_key_path  = "service-account-key.json"
 #'   )
 #' }
 #'
 read_gsheet <- function(spreadsheet_id,
-                        sheet_name = NULL,
-                        range = NULL,
+                        gid = 0,
                         json_key_path = "service-account-key.json") {
 
-  # Load service account credentials
   key <- fromJSON(json_key_path)
 
-  # Create JWT for Service Account authentication
   claim <- jwt_claim(
     iss   = key$client_email,
     scope = "https://www.googleapis.com/auth/spreadsheets.readonly",
@@ -46,13 +39,11 @@ read_gsheet <- function(spreadsheet_id,
     iat   = as.integer(Sys.time())
   )
 
-  # Encode and sign JWT (RS256)
   jwt <- jwt_encode_sig(
     claim = claim,
     key   = read_key(key$private_key)
   )
 
-  # Request access token
   token_resp <- POST(
     url = "https://oauth2.googleapis.com/token",
     body = list(
@@ -68,41 +59,15 @@ read_gsheet <- function(spreadsheet_id,
     stop("Failed to retrieve access token from Google")
   }
 
-  # Build Google Sheets API URL using paste0
-  rng <- if (!is.null(sheet_name)) {
-    if (!is.null(range)) paste0(sheet_name, "!", range) else sheet_name
-  } else {
-    range %||% "A:Z"
-  }
+  url <- paste0("https://docs.google.com/spreadsheets/d/", spreadsheet_id,
+                "/export?format=csv&gid=", gid)
 
-  url <- paste0(
-    "https://sheets.googleapis.com/v4/spreadsheets/", spreadsheet_id, "/values/",
-    rng,
-    "?majorDimension=ROWS&valueRenderOption=UNFORMATTED_VALUE"
-  )
-
-  # Fetch data from Google Sheets API
   resp <- GET(url, add_headers(Authorization = paste("Bearer", token)))
 
   if (http_error(resp)) {
     stop(paste("HTTP error", status_code(resp), "-", content(resp, "text")))
   }
 
-  data_raw <- content(resp, "parsed")
-
-  if (length(data_raw$values) == 0) {
-    return(data.frame())
-  }
-
-  # Convert to base R data.frame
-  dat <- as.data.frame(do.call(rbind, data_raw$values), stringsAsFactors = FALSE)
-
-  colnames(dat) <- as.character(dat[1, ])
-  dat <- dat[-1, , drop = FALSE]
-
-  # Clean column names
-  colnames(dat) <- make.names(colnames(dat), unique = TRUE)
-
-  rownames(dat) <- NULL
-  return(dat)
+  raw_csv <- content(resp, "text")
+  data.table::fread(text = raw_csv)
 }
