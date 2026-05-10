@@ -11,14 +11,14 @@
 #'
 #' @importFrom httr POST GET add_headers http_error status_code content
 #' @importFrom jsonlite fromJSON
-#' @importFrom jose jwt_encode_sig
+#' @importFrom jose jwt_encode_sig jwt_claim
 #' @importFrom openssl read_key
 #'
 #' @export
 #'
 #' @examples
 #' \dontrun{
-#'   df <- read_gsheet(
+#'   dat <- read_gsheet(
 #'     spreadsheet_id = "1aBcD1234EfGh5678IjKlMnOpQrStUvWxYz",
 #'     gid            = 0,
 #'     json_key_path  = "service-account-key.json"
@@ -31,7 +31,7 @@ read_gsheet <- function(spreadsheet_id,
 
   key <- fromJSON(json_key_path)
 
-  claim <- list(
+  claim <- jwt_claim(
     iss   = key$client_email,
     scope = "https://www.googleapis.com/auth/spreadsheets.readonly",
     aud   = "https://oauth2.googleapis.com/token",

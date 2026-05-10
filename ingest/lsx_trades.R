@@ -133,7 +133,7 @@ main <- function() {
 		  download_csv_gz(download_url, csv_gz_path)
 	  convert_to_parquet(csv_gz_path, parquet_path)
 	  message("  SUCCESS")
-    }, error = function(e) warning("  FAILED: ", e$message, call.=FALSE)
+    }, error = function(e) warning("  FAILED: ", e$message, call.=FALSE))
   
   # clean up & exit
   tmp_files <- list.files(tmp_dir, pattern = "\\.csv\\.gz$", full.names = TRUE)
