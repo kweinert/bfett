@@ -14,13 +14,11 @@ main <- function() {
   sheet_url <- Sys.getenv("TRANSACTIONS_SHEET_URL")
   json_key_path <- Sys.getenv("GOOGLE_SERVICE_ACCOUNT_KEY")
   output_dir <- Sys.getenv("TRANSACTIONS_RAW_DIR")
-  sheet_name <- Sys.getenv("TRANSACTIONS_SHEET_NAME", unset = "")
+  gid <- as.integer(Sys.getenv("TRANSACTIONS_SHEET_GID", unset = "0"))
 
   if (sheet_url == "" || json_key_path == "" || output_dir == "") {
     stop("Error: Missing required environment variables. Check .env file.")
   }
-
-  if (sheet_name == "") sheet_name <- NULL
 
   # Extract spreadsheet ID from URL
   spreadsheet_id <- sub(".*spreadsheets/d/([^/]+).*", "\\1", sheet_url)
@@ -31,7 +29,7 @@ main <- function() {
   message("Reading Google Sheet: ", spreadsheet_id)
   df <- bfett::read_gsheet(
     spreadsheet_id = spreadsheet_id,
-    sheet_name = sheet_name,
+    gid = gid,
     json_key_path = json_key_path
   )
 
