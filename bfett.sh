@@ -2,13 +2,14 @@
 
 IMAGE="bfett"
 CONTAINER_NAME="bfett"
-PORT="3838"
+PORT="3840"
 HOST_DIR="$(dirname "$(realpath "$0")")"
 FAUCET_DIR="/home/faucet"
 
 VOLUMES="-v $HOST_DIR/config:$FAUCET_DIR/config"
 VOLUMES="$VOLUMES -v $HOST_DIR/data:$FAUCET_DIR/data"
 VOLUMES="$VOLUMES -v $HOST_DIR/logs:$FAUCET_DIR/logs"
+ENV_MOUNT="--mount type=bind,source=$HOST_DIR/.env,target=$FAUCET_DIR/.env,readonly"
 
 check_docker() {
     if ! docker info >/dev/null 2>&1; then
@@ -18,9 +19,11 @@ check_docker() {
 }
 
 cmd_build() {
-    check_docker
     echo "Building image: $IMAGE in $HOST_DIR"
-    docker build --progress=plain -t "$IMAGE" "$HOST_DIR"
+    docker build --progress=plain --build-arg CACHEBUST=$(date +%s) -t "$IMAGE" "$HOST_DIR" 
+    echo "Stopping and removing running container, if it exists: $CONTAINER_NAME"
+    docker stop $CONTAINER_NAME 2>/dev/null || true && \
+    docker rm -f $CONTAINER_NAME 2>/dev/null || true  
 }
 
 cmd_run() {
@@ -36,6 +39,7 @@ cmd_run() {
     docker run -d \
         --name "$CONTAINER_NAME" \
         $VOLUMES \
+	$ENV_MOUNT \
         -p $PORT:3838 \
         "$IMAGE"
 }
@@ -47,6 +51,13 @@ cmd_make() {
         echo "Container not running. Starting..."
         cmd_run
     fi
+
+    # Warte max. 30 Sekunden
+    timeout 30s bash -c "
+    	until docker exec $CONTAINER_NAME true >/dev/null 2>&1; do
+       	    sleep 1
+    	done
+    " || { echo "Timeout: Container not ready"; exit 1; }
 
     echo "Running make $TARGET in container"
     docker exec "$CONTAINER_NAME" make "$TARGET"

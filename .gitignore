@@ -1,6 +1,7 @@
 data/
+logs/
+config/
 
-# Google service account keys
-service-account-key.json
-*service-account*.json
-
+.env
+.env.local
+.env.*

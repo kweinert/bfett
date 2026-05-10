@@ -29,17 +29,19 @@ main <- function() {
   }
 
   message("Reading Google Sheet: ", spreadsheet_id)
-  df <- bfett::read_gsheet(
+  dat <- bfett::read_gsheet(
     spreadsheet_id = spreadsheet_id,
     sheet_name = sheet_name,
     json_key_path = json_key_path
   )
 
-  if (nrow(df) == 0) {
+  stopifnot(inherits(dat, "data.frame"))
+
+  if (nrow(dat) == 0) {
     stop("Error: Google Sheet is empty.")
   }
 
-  message("Read ", nrow(df), " rows from Google Sheet")
+  message("Read ", nrow(dat), " rows from Google Sheet")
 
   # Save raw CSV
   if (!dir.exists(output_dir)) {
@@ -48,12 +50,12 @@ main <- function() {
   }
 
   raw_csv <- file.path(output_dir, "transactions_raw.csv")
-  utils::write.csv(df, raw_csv, row.names = FALSE, na = "")
+  utils::write.csv(dat, raw_csv, row.names = FALSE, na = "")
   message("Saved raw CSV: ", raw_csv)
 
   # Process transactions
   message("Processing transactions...")
-  bfett::process_transactions(transactions = df, output_dir = output_dir)
+  bfett::process_transactions(transactions = dat, output_dir = output_dir)
 
   message("Transaction ingestion complete.")
 }

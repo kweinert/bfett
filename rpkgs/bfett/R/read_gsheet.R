@@ -14,14 +14,14 @@
 #'
 #' @importFrom httr POST GET add_headers http_error status_code content
 #' @importFrom jsonlite fromJSON
-#' @importFrom jose jwt_encode_sig
+#' @importFrom jose jwt_encode_sig jwt_claim
 #' @importFrom openssl read_key
 #'
 #' @export
 #'
 #' @examples
 #' \dontrun{
-#'   df <- read_gsheet(
+#'   dat <- read_gsheet(
 #'     spreadsheet_id = "1aBcD1234EfGh5678IjKlMnOpQrStUvWxYz",
 #'     sheet_name     = "Daten",
 #'     range          = "A1:Z500",
@@ -38,7 +38,7 @@ read_gsheet <- function(spreadsheet_id,
   key <- fromJSON(json_key_path)
 
   # Create JWT for Service Account authentication
-  claim <- list(
+  claim <- jwt_claim(
     iss   = key$client_email,
     scope = "https://www.googleapis.com/auth/spreadsheets.readonly",
     aud   = "https://oauth2.googleapis.com/token",
@@ -95,14 +95,14 @@ read_gsheet <- function(spreadsheet_id,
   }
 
   # Convert to base R data.frame
-  df <- as.data.frame(do.call(rbind, data_raw$values), stringsAsFactors = FALSE)
+  dat <- as.data.frame(do.call(rbind, data_raw$values), stringsAsFactors = FALSE)
 
-  colnames(df) <- as.character(df[1, ])
-  df <- df[-1, , drop = FALSE]
+  colnames(dat) <- as.character(dat[1, ])
+  dat <- dat[-1, , drop = FALSE]
 
   # Clean column names
-  colnames(df) <- make.names(colnames(df), unique = TRUE)
+  colnames(dat) <- make.names(colnames(dat), unique = TRUE)
 
-  rownames(df) <- NULL
-  return(df)
+  rownames(dat) <- NULL
+  return(dat)
 }
