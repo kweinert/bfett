@@ -40,7 +40,8 @@ RUN R -q -e 'pak::pkg_install(c("remotes", "data.table", "duckdb", "shiny", "bsl
     "httr", "jsonlite", "jose", "openssl", "rmarkdown", "tinytest", "plotly", "htmltools", "htmlwidgets", "echarts4r"))' 
 
 ## own stuff
-ARG CACHEBUST=1
+ARG CACHEBUST=2
+RUN echo "Cache bust: $CACHEBUST"
 COPY rpkgs/bfett/ /tmp/bfett/
 RUN R -q -e "pak::local_install('/tmp/bfett', dependencies = FALSE)"
 COPY dashboard/app.R /home/faucet/dashboard/app.R

@@ -1,6 +1,6 @@
 library(tinytest)
-
-readRenviron(".env")
+env_fn <- "/home/faucet/.env"
+readRenviron(env_fn)
 sheet_url <- Sys.getenv("TRANSACTIONS_SHEET_URL")
 json_key_path <- Sys.getenv("GOOGLE_SERVICE_ACCOUNT_KEY")
 
@@ -20,3 +20,4 @@ expect_true(inherits(dat, "data.table"))
 expect_true(nrow(dat) > 0)
 expect_true(ncol(dat) > 0)
 expect_true(!any(sapply(dat, is.list)))
+browser()
