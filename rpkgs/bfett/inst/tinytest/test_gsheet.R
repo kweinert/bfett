@@ -10,7 +10,7 @@ if (sheet_url == "" || json_key_path == "") {
 
 spreadsheet_id <- sub(".*spreadsheets/d/([^/]+).*", "\\1", sheet_url)
 
-dat <- read_gsheet(
+dat <- bfett::read_gsheet(
   spreadsheet_id = spreadsheet_id,
   gid            = 0,
   json_key_path  = json_key_path
