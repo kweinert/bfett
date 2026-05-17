@@ -77,6 +77,11 @@ process_transactions <- function(transactions, output_dir=NULL, verbose=FALSE, t
 			#idx <- which(open_dat$buy_date <= sells[i,"sell_date"])
 			#browser()
 			
+			if (is.null(open_pos[[isin]])) {
+			    stop("Sold ISIN '", isin, "' (sell date: ", sells[["sell_date"]][i], ") not found in any buy transaction. ",
+			         "Available ISINs: ", paste0(names(open_pos), collapse = ", "),
+			         ". Check the source data.")
+			}
 			if (anyNA(open_pos[[isin]][["size"]])) {
 			    na_dates <- open_pos[[isin]][["date"]][is.na(open_pos[[isin]][["size"]])]
 			    stop("Missing size value(s) for isin=", isin, " on date(s): ", paste(na_dates, collapse = ", "))
