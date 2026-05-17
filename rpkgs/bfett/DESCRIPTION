@@ -14,5 +14,7 @@ Imports:
     data.table, httr, jsonlite, jose, openssl, pdftools
 Suggests:
 	tinytest
+Encoding: UTF-8
 LazyLoad: yes
 Config/roxygen2/version: 8.0.0
+RoxygenNote: 7.3.3

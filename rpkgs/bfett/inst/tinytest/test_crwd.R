@@ -1,4 +1,5 @@
 library(tinytest)
+library(data.table)
 
 # load_all("bfett"); test_bfett("crwd")
 
@@ -17,10 +18,10 @@ US22788C1053	Crowdstrike Holdings (A)	2024-07-19	1.769285	501.27	buy	nert	tr
 
 tmp_dir <- tempdir()
 process_transactions(dat, output_dir = tmp_dir, verbose=TRUE)
-ap <- read.csv(file.path(tmp_dir, "active_positions.csv"))
+ap <- fread(file.path(tmp_dir, "active_positions.csv"), sep = ";", dec = ",")
 expect_true(nrow(ap)==0)
 
-closed <- read.csv(file.path(tmp_dir, "closed_trades.csv"))
+closed <- fread(file.path(tmp_dir, "closed_trades.csv"), sep = ";", dec = ",")
 expect_true(nrow(closed)==2)
 expect_true(all(closed$isin=="US22788C1053"))
 expect_true(all(closed$sell_date==c("2024-09-06", "2025-07-07")))

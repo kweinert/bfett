@@ -17,13 +17,15 @@
 #' @param verbose logical, print diagnostic messages
 #' @param tol_amount numerical, tolerance for position sizes
 #' @return NULL, used for its side effects
+#' @importFrom data.table fread fwrite rbindlist setDT
+#' @importFrom utils tail head
 #' @export
 process_transactions <- function(transactions, output_dir=NULL, verbose=FALSE, tol_amount=0.00001) {
 	# validate input
 	if(is.character(transactions)) {
 		stopifnot(length(transactions)==1, file.exists(transactions))
 		if(is.null(output_dir)) output_dir <- dirname(transactions)
-		transactions <- utils::read.csv(transactions, na.strings="")
+		transactions <- fread(transactions, sep = ";", dec = ",", na.strings = "")
 	}
 	stopifnot(is.data.frame(transactions), nrow(transactions)>0)
 	req_cn <- c("isin", "date", "size", "amount", "type", "portfolio")
@@ -34,36 +36,39 @@ process_transactions <- function(transactions, output_dir=NULL, verbose=FALSE, t
 	
 	# remove unneeded information, enforce data.table
 	transactions <- transactions[,req_cn]
-	data.table::setDT(transactions)
+	setDT(transactions)
 	
 	# cash is basically a cumsum()
 	one_portf_cash <- function(dat) {
 		the_sign <- c(deposit=1, buy=-1, other=1, sell=1, withdraw=-1)
-		ans <- transform(dat, cash = amount*the_sign[type]) |>
-			stats::aggregate(cash ~ date, data=_, FUN=sum) 
-		ans[order(ans[["date"]]),] |>
-			transform(cash=cumsum(cash), portfolio=dat[1,"portfolio"])
+		dat[, cash := amount * the_sign[type]
+		    ][, .(cash = sum(cash)), by = date
+		    ][order(date)
+		    ][, cash := cumsum(cash)
+		    ][, portfolio := dat[1, portfolio]]
 	}
-	cash <- split(transactions, transactions$portfolio) |>
+	cash <- split(transactions, by = "portfolio") |>
 		lapply(one_portf_cash) |>
-		data.table::rbindlist()
+		rbindlist()
 	
 
     # don't know how to avoid the for loop
 	one_portf_trades <- function(dat) {
-		sells <- subset(dat, type=="sell") |>
-			transform(sell_date=date, sell_price=amount/size)
-		sells <- sells[order(sells[,"sell_date"], decreasing=FALSE),]
-			
-		open_pos <- subset(dat, type=="buy") |>
-			transform(buy_date=date, buy_price=amount/size) 
-		open_pos <- split(open_pos, open_pos[["isin"]]) |> 
-			lapply(\(x) x[order(x[,"buy_date"]),])
+		sells <- dat[type == "sell"
+		    ][, sell_date := date
+		    ][, sell_price := amount / size
+		    ][order(sell_date)]
+
+		open_pos <- dat[type == "buy"
+		    ][, buy_date := date
+		    ][, buy_price := amount / size
+		    ][order(buy_date)]
+		open_pos <- split(open_pos, by = "isin")
 		
 	
 		one_sell <- function(i) {
-			size <- sells[i,"size"]
-			isin <- sells[i,"isin"]
+			size <- sells[["size"]][i]
+			isin <- sells[["isin"]][i]
 			if(verbose) message("i=", i, ", size=", size, ", isin=", isin)
 			
 			# find out which buys are cleared with this sell.
@@ -72,62 +77,59 @@ process_transactions <- function(transactions, output_dir=NULL, verbose=FALSE, t
 			#idx <- which(open_dat$buy_date <= sells[i,"sell_date"])
 			#browser()
 			
+			if (anyNA(open_pos[[isin]][["size"]])) {
+			    na_dates <- open_pos[[isin]][["date"]][is.na(open_pos[[isin]][["size"]])]
+			    stop("Missing size value(s) for isin=", isin, " on date(s): ", paste(na_dates, collapse = ", "))
+			}
 			j <- 1
-			while (size>sum(open_pos[[isin]][1:j, "size"]) && j<nrow(open_pos[[isin]])) {
+			while (size>sum(open_pos[[isin]][["size"]][1:j]) && j<nrow(open_pos[[isin]])) {
 				j <- j + 1
 				if(verbose) {
-					message("    j=", j, ", sum(open_pos[[isin]][1:j, 'size'])=", sum(open_pos[[isin]][1:j, "size"]))
+					message("    j=", j, ", sum(open_pos[[isin]][1:j, 'size'])=", sum(open_pos[[isin]][["size"]][1:j]))
 					Sys.sleep(1)
 				}
 			}
-			if(size-sum(open_pos[[isin]][1:j, "size"]) > tol_amount) stop("more sold (", size, ") than bought (", open_pos[[isin]][1:j, "size"], " isin=", isin)
+			if(size-sum(open_pos[[isin]][["size"]][1:j]) > tol_amount) stop("more sold (", size, ") than bought (", sum(open_pos[[isin]][["size"]][1:j]), " isin=", isin)
 			ans <- open_pos[[isin]][1:j,c("isin", "buy_price", "buy_date", "size")]
 			if(j==1) {
-				ans[1,"size"] <- size
+				ans[["size"]][1] <- size
 			} else {
-				ans[j,"size"] <- size - sum(ans[1:(j-1), "size"])
+				ans[["size"]][j] <- size - sum(ans[["size"]][1:(j-1)])
 			}
-			j_remain <- open_pos[[isin]][j,"size"] - ans[j, "size"]
+			j_remain <- open_pos[[isin]][["size"]][j] - ans[["size"]][j]
 			#browser()
 			if(j_remain<tol_amount) {
-				open_pos[[isin]] <<- utils::tail(open_pos[[isin]], -j)
+				open_pos[[isin]] <<- tail(open_pos[[isin]], -j)
 			} else {
-				open_pos[[isin]] <<- utils::tail(open_pos[[isin]], -j+1)
-				open_pos[[isin]][1,"size"] <<- j_remain
+				open_pos[[isin]] <<- tail(open_pos[[isin]], -j+1)
+				open_pos[[isin]][["size"]][1] <<- j_remain
 			}
 
 			merge(ans, sells[i, c("isin", "sell_date", "sell_price")], by="isin")
 		}
 		
-		closed_trades <- if(nrow(sells)>0) 
-			lapply(seq.int(nrow(sells)), one_sell) |> 
-			do.call(what=rbind) |>
-			transform(portfolio=dat[1,"portfolio"])
+		closed_trades <- if(nrow(sells)>0)
+			rbindlist(lapply(seq.int(nrow(sells)), one_sell))[, portfolio := dat[1, portfolio]]
 		else
 			data.frame()
-		
-		active_positions=do.call(rbind, open_pos) |>
-			subset(size>tol_amount) |>
-			transform(date=NULL, amount=NULL, type=NULL)
-	    rownames(active_positions) <- NULL
+
+		active_positions <- rbindlist(open_pos)[size > tol_amount
+		    ][, date := NULL
+		    ][, amount := NULL
+		    ][, type := NULL]
 			
 		list(closed_trades=closed_trades, active_positions=active_positions)
 	}
-	res <- split(transactions, transactions$portfolio) |>
+	res <- split(transactions, by = "portfolio") |>
 		lapply(one_portf_trades)
 
-	active_positions <- lapply(res, \(x) x[["active_positions"]]) |> 
-		do.call(what=rbind)
-	rownames(active_positions) <- NULL
-		
-	closed_trades <- lapply(res, \(x) x[["closed_trades"]]) |> 
-		do.call(what=rbind)
-	rownames(closed_trades) <- NULL
+	active_positions <- rbindlist(lapply(res, \(x) x[["active_positions"]]))
+	closed_trades <- rbindlist(lapply(res, \(x) x[["closed_trades"]]))
 
 	# write result
-	utils::write.csv(x=cash, file=file.path(output_dir, "cash.csv"), na="", row.names=FALSE)
-	utils::write.csv(x=active_positions, file=file.path(output_dir, "active_positions.csv"), na="", row.names=FALSE)
-	utils::write.csv(x=closed_trades, file=file.path(output_dir, "closed_trades.csv"), na="", row.names=FALSE)
+	fwrite(cash, file.path(output_dir, "cash.csv"), sep = ";", dec = ",", na = "", row.names = FALSE)
+	fwrite(active_positions, file.path(output_dir, "active_positions.csv"), sep = ";", dec = ",", na = "", row.names = FALSE)
+	fwrite(closed_trades, file.path(output_dir, "closed_trades.csv"), sep = ";", dec = ",", na = "", row.names = FALSE)
 	
 }
 

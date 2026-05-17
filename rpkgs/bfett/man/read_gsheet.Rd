@@ -6,35 +6,29 @@
 \usage{
 read_gsheet(
   spreadsheet_id,
-  sheet_name = NULL,
-  range = NULL,
+  gid = 0,
   json_key_path = "service-account-key.json"
 )
 }
 \arguments{
 \item{spreadsheet_id}{Character. Google Spreadsheet ID (the long string in the URL).}
 
-\item{sheet_name}{Character. Name of the sheet (tab) to read.
-If NULL, reads the first sheet.}
-
-\item{range}{Character. Cell range to read (e.g. "A1:Z1000").
-If NULL, reads all data in the sheet.}
+\item{gid}{Integer. Sheet grid ID (tab identifier). Default 0 (first sheet).}
 
 \item{json_key_path}{Character. Path to the Service Account JSON key file.}
 }
 \value{
-A base R data.frame containing the sheet data.
+A data.table containing the sheet data.
 }
 \description{
 Reads data from a private Google Sheet using a Service Account JSON key file.
-Returns a standard base R data.frame with minimal dependencies.
+Uses CSV export endpoint and \code{data.table::fread()} for parsing.
 }
 \examples{
 \dontrun{
-  df <- read_gsheet(
+  dat <- read_gsheet(
     spreadsheet_id = "1aBcD1234EfGh5678IjKlMnOpQrStUvWxYz",
-    sheet_name     = "Daten",
-    range          = "A1:Z500",
+    gid            = 0,
     json_key_path  = "service-account-key.json"
   )
 }
