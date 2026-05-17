@@ -20,7 +20,8 @@ RUN apt-get update && apt-get install -y \
     git \
     && rm -rf /var/lib/apt/lists/*
 
-## lea        
+## lea
+RUN python3 -c "import sys; v = sys.version_info; assert (v.major, v.minor) >= (3, 12), f'Python {v.major}.{v.minor} < 3.12'"
 RUN python3 -m venv /opt/lea-venv
 RUN /opt/lea-venv/bin/pip install --upgrade pip
 RUN /opt/lea-venv/bin/pip install lea-cli duckdb
