@@ -1,210 +1,331 @@
-# Feature: Google Sheets Transaction Ingestion
+# Refactor: process_transactions.R
 
 ## Overview
 
-Create `bfett/ingest/transactions.R` to:
-1. Read transaction data from a Google Sheet using a Service Account JSON key file. Create a `read_google_sheet` function for that purpose.
-2. Transform data and store the resulting CSVs (`cash.csv`, `active_positions.csv`, `closed_trades.csv`) in `data/raw/transactions/` using existing `process_transactions()` function.
-3. Full refresh each run (no incremental loading) — Google Sheet is small and idempotent.
+Refactor `rpkgs/bfett/R/process_transactions.R` to:
+1. Add `@importFrom data.table fread fwrite rbindlist setDT` roxygen2 tags
+2. Replace `utils::read.csv` / `utils::write.csv` with `data.table::fread` / `data.table::fwrite` (European CSV: `sep = ";"`, `dec = ","`)
+3. Replace all `transform()` / `subset()` / `aggregate()` / `do.call(rbind)` with data.table syntax
+4. Drop `data.table::` prefix where `@importFrom` provides direct access
 
-## Implementation Steps
+## Changes
 
-### Step 1: Update `.env`
+### 1. Roxygen block (before `@export`)
 
-Add these environment variables:
-
-```bash
-# Google Sheets
-TRANSACTIONS_SHEET_URL=https://docs.google.com/spreadsheets/d/12rCteU7-3Lbq9kX6fGrUlFlqvyM1iQT9XXrRV1fmaJs/edit
-GOOGLE_SERVICE_ACCOUNT_KEY=/home/faucet/config/service-account-key.json
-TRANSACTIONS_RAW_DIR=data/raw/transactions
+Add:
+```r
+#' @importFrom data.table fread fwrite rbindlist setDT
+#' @importFrom utils tail head
 ```
 
-### Step 2: Create `bfett/rpkgs/bfett/R/read_gsheet.R`
+### 2. Input CSV read (line 26)
 
 ```r
-#' Read Google Sheet using Service Account
-#'
-#' Reads data from a private Google Sheet using a Service Account JSON key file.
-#' Returns a standard base R data.frame with minimal dependencies.
-#'
-#' @param spreadsheet_id Character. Google Spreadsheet ID (the long string in the URL).
-#' @param sheet_name Character. Name of the sheet (tab) to read. 
-#'   If NULL, reads the first sheet.
-#' @param range Character. Cell range to read (e.g. "A1:Z1000"). 
-#'   If NULL, reads all data in the sheet.
-#' @param json_key_path Character. Path to the Service Account JSON key file.
-#'
-#' @return A base R data.frame containing the sheet data.
-#'
-#' @importFrom httr POST GET add_headers http_error status_code content
-#' @importFrom jsonlite fromJSON
-#' @importFrom jose jwt_encode_sig
-#' @importFrom openssl read_key
-#'
-#' @examples
-#' \dontrun{
-#'   df <- read_gsheet(
-#'     spreadsheet_id = "1aBcD1234EfGh5678IjKlMnOpQrStUvWxYz",
-#'     sheet_name     = "Daten",
-#'     range          = "A1:Z500",
-#'     json_key_path  = "service-account-key.json"
-#'   )
-#' }
-#'
-read_gsheet <- function(spreadsheet_id,
-                              sheet_name = NULL,
-                              range = NULL,
-                              json_key_path = "service-account-key.json") {
-  
-  # Load service account credentials
-  key <- fromJSON(json_key_path)
-  
-  # Create JWT for Service Account authentication
-  claim <- list(
-    iss   = key$client_email,
-    scope = "https://www.googleapis.com/auth/spreadsheets.readonly",
-    aud   = "https://oauth2.googleapis.com/token",
-    exp   = as.integer(Sys.time()) + 3600,
-    iat   = as.integer(Sys.time())
-  )
-  
-  # Encode and sign JWT (RS256)
-  jwt <- jwt_encode_sig(
-    claim = claim,
-    key   = read_key(key$private_key)
-  )
-  
-  # Request access token
-  token_resp <- POST(
-    url = "https://oauth2.googleapis.com/token",
-    body = list(
-      grant_type = "urn:ietf:params:oauth:grant-type:jwt-bearer",
-      assertion  = jwt
-    ),
-    encode = "form"
-  )
-  
-  token <- content(token_resp, "parsed")$access_token
-  
-  if (is.null(token)) {
-    stop("Failed to retrieve access token from Google")
-  }
-  
-  # Build Google Sheets API URL using paste0
-  rng <- if (!is.null(sheet_name)) {
-    if (!is.null(range)) paste0(sheet_name, "!", range) else sheet_name
-  } else {
-    range %||% "A:Z"
-  }
-  
-  url <- paste0(
-    "https://sheets.googleapis.com/v4/spreadsheets/", spreadsheet_id, "/values/",
-    rng,
-    "?majorDimension=ROWS&valueRenderOption=UNFORMATTED_VALUE"
-  )
-  
-  # Fetch data from Google Sheets API
-  resp <- GET(url, add_headers(Authorization = paste("Bearer", token)))
-  
-  if (http_error(resp)) {
-    stop(paste("HTTP error", status_code(resp), "-", content(resp, "text")))
-  }
-  
-  data_raw <- content(resp, "parsed")
-  
-  if (length(data_raw$values) == 0) {
-    return(data.frame())
-  }
-  
-  df <- as.data.frame(do.call(rbind, data_raw$values), stringsAsFactors = FALSE)
-  colnames(df) <- as.character(df[1, ])
-  df <- df[-1, , drop = FALSE]
-  
-  # Clean column names
-  colnames(df) <- make.names(colnames(df), unique = TRUE)
-  
-  rownames(df) <- NULL
-  return(df)
+# Before:
+transactions <- utils::read.csv(transactions, na.strings="")
+
+# After:
+transactions <- fread(transactions, sep = ";", dec = ",", na.strings = "")
+```
+
+### 3. `setDT` call (line 37)
+
+```r
+# Before:
+data.table::setDT(transactions)
+
+# After:
+setDT(transactions)
+```
+
+### 4. Outer `split()` calls (lines 47, 116)
+
+Switch both calls from base R `split()` to `split.data.table` to preserve `data.table` class inside helper functions:
+
+```r
+# Before (both lines 47 and 116):
+split(transactions, transactions$portfolio)
+
+# After (both lines):
+split(transactions, by = "portfolio")
+```
+
+This ensures `dat` inside `one_portf_cash` and `one_portf_trades` is already a `data.table`, making the chains in sections 5, 7, and 8 work without extra `setDT()`.
+
+### 5. `one_portf_cash` function (lines 40-46)
+
+```r
+# Before:
+the_sign <- c(deposit=1, buy=-1, other=1, sell=1, withdraw=-1)
+ans <- transform(dat, cash = amount*the_sign[type]) |>
+    stats::aggregate(cash ~ date, data=_, FUN=sum)
+ans[order(ans[["date"]]),] |>
+    transform(cash=cumsum(cash), portfolio=dat[1,"portfolio"])
+
+# After:
+the_sign <- c(deposit=1, buy=-1, other=1, sell=1, withdraw=-1)
+dat[, cash := amount * the_sign[type]
+    ][, .(cash = sum(cash)), by = date
+    ][order(date)
+    ][, cash := cumsum(cash)
+    ][, portfolio := dat[1, portfolio]]
+```
+
+### 6. `rbindlist` call (line 49)
+
+```r
+# Before:
+data.table::rbindlist()
+
+# After:
+rbindlist()
+```
+
+### 7. Sells computation (lines 54-56)
+
+```r
+# Before:
+sells <- subset(dat, type=="sell") |>
+    transform(sell_date=date, sell_price=amount/size)
+sells <- sells[order(sells[,"sell_date"], decreasing=FALSE),]
+
+# After:
+sells <- dat[type == "sell"
+    ][, sell_date := date
+    ][, sell_price := amount / size
+    ][order(sell_date)]
+```
+
+### 8. Open positions computation (lines 58-61)
+
+```r
+# Before:
+open_pos <- subset(dat, type=="buy") |>
+    transform(buy_date=date, buy_price=amount/size)
+open_pos <- split(open_pos, open_pos[["isin"]]) |>
+    lapply(\(x) x[order(x[,"buy_date"]),])
+
+# After:
+open_pos <- dat[type == "buy"
+    ][, buy_date := date
+    ][, buy_price := amount / size
+    ][order(buy_date)]
+open_pos <- split(open_pos, by = "isin")
+```
+
+### 9. NA check for `size` before `while` loop (line 75)
+
+Insert before `j <- 1`:
+
+```r
+if (anyNA(open_pos[[isin]][["size"]])) {
+    na_dates <- open_pos[[isin]][["date"]][is.na(open_pos[[isin]][["size"]])]
+    stop("Missing size value(s) for isin=", isin, " on date(s): ", paste(na_dates, collapse = ", "))
 }
 ```
 
-### Step 3: Add new dependencies to `bfett/rpkgs/bfett/DESCRIPTION`
+### 10. `tail()` in `one_sell` (lines 93, 95)
 
-The new dependencies are `httr`, `jsonlite`, `jose`, and `openssl`. Add them to the Imports section.
+```r
+# Before:
+open_pos[[isin]] <<- utils::tail(open_pos[[isin]], -j)
 
-### Step 4: Rename `seeds` parameter to `output_dir` in `process_transactions()`
-
-In `rpkgs/bfett/R/process_transactions.R`:
-- Rename parameter `seeds` → `output_dir`
-- Update internal references
-- Regenerate `man/process_transactions.Rd`
-
-In test files:
-- `rpkgs/bfett/inst/tinytest/test_crwd.R` — update `seeds = tmp_dir` → `output_dir = tmp_dir`
-- `rpkgs/bfett/inst/tinytest/test_msft.R` — update `seeds = tmp_dir` → `output_dir = tmp_dir`
-- `rpkgs/bfett/inst/tinytest/test_xiaomi.R` — update `seeds = tmp_dir` → `output_dir = tmp_dir`
-
-### Step 5: Modify Dockerfile
-
-Add these lines before the existing `COPY` commands:
-
-```dockerfile
-COPY rpkgs/bfett/ /tmp/bfett/
+# After:
+open_pos[[isin]] <<- tail(open_pos[[isin]], -j)
 ```
 
-After the existing `RUN R -e "pak::pkg_install(...)"` line, add:
+```r
+# Before:
+open_pos[[isin]] <<- utils::tail(open_pos[[isin]], -j+1)
 
-```dockerfile
-RUN R -e "pak::local_install('/tmp/bfett')"
+# After:
+open_pos[[isin]] <<- tail(open_pos[[isin]], -j+1)
 ```
 
-### Step 6: Create `bfett/ingest/transactions.R`
+### 11. `closed_trades` result (line 105)
 
-The script:
-1. Loads `.env` via `readRenviron()`
-2. Extracts `spreadsheet_id` from `TRANSACTIONS_SHEET_URL` using regex
-3. Calls `bfett::read_google_sheet()` with params from env vars
-4. Saves raw CSV to `TRANSACTIONS_RAW_DIR`
-5. Calls `bfett::process_transactions()` with `output_dir = TRANSACTIONS_RAW_DIR`
-6. Does full refresh (overwrites existing CSVs)
+```r
+# Before:
+do.call(what=rbind) |>
+    transform(portfolio=dat[1,"portfolio"])
 
-### Step 7: Create staging SQL files in `transform/scripts/staging/`
+# After:
+rbindlist()[, portfolio := dat[1, portfolio]]
+```
 
-Create three files using `.sql.jinja` extension:
+### 12. `active_positions` result (lines 109-112)
 
-- `active_positions.sql.jinja` — `SELECT * FROM read_csv_auto('{{ env["TRANSACTIONS_RAW_DIR"] }}/active_positions.csv'))`
-- `closed_trades.sql.jinja` — `SELECT * FROM read_csv_auto('{{ env["TRANSACTIONS_RAW_DIR"] }}/closed_trades.csv'))`
-- `cash.sql.jinja` — `SELECT * FROM read_csv_auto('{{ env["TRANSACTIONS_RAW_DIR"] }}/cash.csv'))`
+```r
+# Before:
+active_positions=do.call(rbind, open_pos) |>
+    subset(size>tol_amount) |>
+    transform(date=NULL, amount=NULL, type=NULL)
+rownames(active_positions) <- NULL
 
-Leave existing `stg_trades.sql` as-is.
+# After:
+active_positions <- rbindlist(open_pos)[size > tol_amount
+    ][, date := NULL
+    ][, amount := NULL
+    ][, type := NULL]
+```
 
-### Step 8: Edit `bfett/Makefile`
+### 13. `do.call(rbind)` in outer scope (lines 119-125)
 
-Update `ingest` target to run both `ingest/lsx_trades.R` and `ingest/transactions.R`.
+Replace three `do.call(what=rbind)` calls with `rbindlist()`:
 
-### Step 9: Update `.gitignore`
+```r
+# Before:
+active_positions <- lapply(res, \(x) x[["active_positions"]]) |>
+    do.call(what=rbind)
+rownames(active_positions) <- NULL
+
+closed_trades <- lapply(res, \(x) x[["closed_trades"]]) |>
+    do.call(what=rbind)
+rownames(closed_trades) <- NULL
+
+# After:
+active_positions <- rbindlist(lapply(res, \(x) x[["active_positions"]]))
+closed_trades <- rbindlist(lapply(res, \(x) x[["closed_trades"]]))
+```
+
+### 14. Output CSVs (lines 128-130)
+
+```r
+# Before:
+utils::write.csv(x=cash, file=file.path(output_dir, "cash.csv"), na="", row.names=FALSE)
+utils::write.csv(x=active_positions, file=file.path(output_dir, "active_positions.csv"), na="", row.names=FALSE)
+utils::write.csv(x=closed_trades, file=file.path(output_dir, "closed_trades.csv"), na="", row.names=FALSE)
+
+# After:
+fwrite(cash, file.path(output_dir, "cash.csv"), sep = ";", dec = ",", na = "", row.names = FALSE)
+fwrite(active_positions, file.path(output_dir, "active_positions.csv"), sep = ";", dec = ",", na = "", row.names = FALSE)
+fwrite(closed_trades, file.path(output_dir, "closed_trades.csv"), sep = ";", dec = ",", na = "", row.names = FALSE)
+```
+
+### 15. Update test files
+
+Add `library(data.table)` and switch CSV reads to `fread()` with European format.
+
+#### `test_crwd.R`
+
+After `library(tinytest)`, add `library(data.table)`.
+
+```r
+# Before:
+ap <- read.csv(file.path(tmp_dir, "active_positions.csv"))
+
+# After:
+ap <- fread(file.path(tmp_dir, "active_positions.csv"), sep = ";", dec = ",")
+```
+
+```r
+# Before:
+closed <- read.csv(file.path(tmp_dir, "closed_trades.csv"))
+
+# After:
+closed <- fread(file.path(tmp_dir, "closed_trades.csv"), sep = ";", dec = ",")
+```
+
+No column indexing changes needed — `test_crwd.R` uses `$` syntax (`closed$isin`) which works with both data.frame and data.table.
+
+#### `test_xiaomi.R`
+
+After `library(tinytest)`, add `library(data.table)`.
+
+Switch CSV reads and update column indexing from `df[,"col"]` to `df[["col"]]`:
+
+```r
+# Before (read):
+ct <- utils::read.csv(file.path(tmp_dir, "closed_trades.csv"))
+
+# After (read):
+ct <- fread(file.path(tmp_dir, "closed_trades.csv"), sep = ";", dec = ",")
+```
+
+All `ct[,"col"]` → `ct[["col"]]` throughout:
+
+| Before | After |
+|---|---|
+| `is.character(ct[,"isin"])` | `is.character(ct[["isin"]])` |
+| `is.numeric(ct[,"buy_price"])` | `is.numeric(ct[["buy_price"]])` |
+| `is.character(ct[,"buy_date"])` | `is.character(ct[["buy_date"]])` |
+| `is.numeric(ct[,"size"])` | `is.numeric(ct[["size"]])` |
+| `is.character(ct[,"sell_date"])` | `is.character(ct[["sell_date"]])` |
+| `is.numeric(ct[,"sell_price"])` | `is.numeric(ct[["sell_price"]])` |
+| `is.character(ct[,"portfolio"])` | `is.character(ct[["portfolio"]])` |
+| `ct[1,"isin"]` | `ct[["isin"]][1]` |
+| `ct[1,"buy_price"]` | `ct[["buy_price"]][1]` |
+| `ct[1,"buy_date"]` | `ct[["buy_date"]][1]` |
+| `ct[1,"size"]` | `ct[["size"]][1]` |
+| `ct[1,"sell_date"]` | `ct[["sell_date"]][1]` |
+| `ct[1,"sell_price"]` | `ct[["sell_price"]][1]` |
+| `ct[1,"portfolio"]` | `ct[["portfolio"]][1]` |
+
+```r
+# Before (read):
+ap <- utils::read.csv(file.path(tmp_dir, "active_positions.csv"))
+
+# After (read):
+ap <- fread(file.path(tmp_dir, "active_positions.csv"), sep = ";", dec = ",")
+```
+
+All `ap[,"col"]` → `ap[["col"]]` and `ct[,"col"]` → `ct[["col"]]` (same pattern):
+
+| Before | After |
+|---|---|
+| `is.character(ct[,"isin"])` | `is.character(ct[["isin"]])` |
+| `is.numeric(ct[,"buy_price"])` | `is.numeric(ct[["buy_price"]])` |
+| `is.character(ct[,"buy_date"])` | `is.character(ct[["buy_date"]])` |
+| `is.numeric(ct[,"size"])` | `is.numeric(ct[["size"]])` |
+| `is.character(ct[,"portfolio"])` | `is.character(ct[["portfolio"]])` |
+| `ap[1,"isin"]` | `ap[["isin"]][1]` |
+| `ap[1,"buy_price"]` | `ap[["buy_price"]][1]` |
+| `ap[1,"buy_date"]` | `ap[["buy_date"]][1]` |
+| `ap[1,"size"]` | `ap[["size"]][1]` |
+| `ap[1,"portfolio"]` | `ap[["portfolio"]][1]` |
+
+```r
+# Before (read):
+cash <- utils::read.csv(file.path(tmp_dir, "cash.csv"))
+
+# After (read):
+cash <- fread(file.path(tmp_dir, "cash.csv"), sep = ";", dec = ",")
+```
+
+```r
+# Before (order):
+cash <- cash[order(cash[,"date"]),]
+
+# After (order):
+cash <- cash[order(date)]
+```
+
+All `cash[,"col"]` → `cash[["col"]]`:
+
+| Before | After |
+|---|---|
+| `is.numeric(cash[,"cash"])` | `is.numeric(cash[["cash"]])` |
+| `is.character(cash[,"date"])` | `is.character(cash[["date"]])` |
+| `is.character(cash[,"portfolio"])` | `is.character(cash[["portfolio"]])` |
+| `expect_equal(cash[,"cash"], ...)` | `expect_equal(cash[["cash"]], ...)` |
+| `all(cash[,"portfolio"]=="nert")` | `all(cash[["portfolio"]]=="nert")` |
+| `all(cash[,"date"]==expected_dates)` | `all(cash[["date"]]==expected_dates)` |
+
+### 16. Run tests
+
+Run the three test files that exercise `process_transactions`:
 
 ```bash
-# Google service account keys
-service-account-key.json
-*service-account*.json
+Rscript -e 'tinytest::run_test_file("rpkgs/bfett/inst/tinytest/test_msft.R")'
+Rscript -e 'tinytest::run_test_file("rpkgs/bfett/inst/tinytest/test_crwd.R")'
+Rscript -e 'tinytest::run_test_file("rpkgs/bfett/inst/tinytest/test_xiaomi.R")'
 ```
 
-### Step 10: Docker Volume Mounts
-
-Update `bfett.sh` to mount the config directory:
-
-```bash
-VOLUMES="-v $HOST_DIR/config:$FAUCET_DIR/config"
-VOLUMES="$VOLUMES -v $HOST_DIR/data:$FAUCET_DIR/data"
-VOLUMES="$VOLUMES -v $HOST_DIR/logs:$FAUCET_DIR/logs"
-```
+All must pass before closing the refactor.
 
 ## Design Decisions
 
-- **Output directory:** CSVs go to `data/raw/transactions/`, passed as `output_dir` parameter
-- **Incremental loading:** Full refresh each run (Google Sheet is small)
-- **URL construction:** Use `paste0` instead of broken `modify_url`
-- **Sheet name:** Defaults to first tab; configurable via `TRANSACTIONS_SHEET_NAME` env var (optional)
-- **Lea:** Uses `.sql.jinja` extension for staging files, reads from `{{ env["TRANSACTIONS_RAW_DIR"] }}`
+- **European CSV format**: semicolon separator (`sep = ";"`) and comma decimal point (`dec = ","`) throughout the pipeline (matches `ingest/transactions.R`)
+- **Data.table grouping**: all `split()` calls use `split.data.table` (`by = `) to preserve data.table class throughout
+- **Chained `data.table[...][...]` syntax**: replaces nested `transform()` / `subset()` pipes
+- **No rownames**: data.table doesn't use rownames, so `rownames(x) <- NULL` lines are unnecessary
