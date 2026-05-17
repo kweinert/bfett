@@ -33,7 +33,7 @@ read_gsheet <- function(spreadsheet_id,
 
   claim <- jwt_claim(
     iss   = key$client_email,
-    scope = "https://www.googleapis.com/auth/spreadsheets.readonly",
+	scope = "https://www.googleapis.com/auth/spreadsheets.readonly https://www.googleapis.com/auth/drive.readonly",
     aud   = "https://oauth2.googleapis.com/token",
     exp   = as.integer(Sys.time()) + 3600,
     iat   = as.integer(Sys.time())
