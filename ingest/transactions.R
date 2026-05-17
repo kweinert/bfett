@@ -2,6 +2,7 @@
 
 suppressPackageStartupMessages({
   library(bfett)
+  library(data.table)
 })
 
 options(warn = 1)
@@ -10,46 +11,32 @@ main <- function() {
   message("Reading configuration")
   if (!file.exists(".env")) stop("Error: .env file not found.")
   readRenviron(".env")
-
   sheet_url <- Sys.getenv("TRANSACTIONS_SHEET_URL")
   json_key_path <- Sys.getenv("GOOGLE_SERVICE_ACCOUNT_KEY")
   output_dir <- Sys.getenv("TRANSACTIONS_RAW_DIR")
   gid <- as.integer(Sys.getenv("TRANSACTIONS_SHEET_GID", unset = "0"))
 
-  if (sheet_url == "" || json_key_path == "" || output_dir == "") {
-    stop("Error: Missing required environment variables. Check .env file.")
-  }
+  if (sheet_url == "") stop("Error: Missing TRANSACTIONS_SHEET_URL environment variable. Check .env file.")
+  if (json_key_path == "") stop("Error: Missing GOOGLE_SERVICE_ACCOUNT_KEY environment variable. Check .env file.")
+  if (output_dir == "") stop("Error: Missing TRANSACTIONS_RAW_DIR environment variable. Check .env file.")
 
-  # Extract spreadsheet ID from URL
+  message("Reading Google Sheet")
   spreadsheet_id <- sub(".*spreadsheets/d/([^/]+).*", "\\1", sheet_url)
-  if (spreadsheet_id == sheet_url) {
-    stop("Error: Could not extract spreadsheet ID from URL.")
-  }
-
-  message("Reading Google Sheet: ", spreadsheet_id)
   dat <- bfett::read_gsheet(
     spreadsheet_id = spreadsheet_id,
     gid = gid,
     json_key_path = json_key_path
   )
-
   stopifnot(inherits(dat, "data.frame"))
+  if (nrow(dat) == 0) stop("Error: Google Sheet is empty.")
 
-  if (nrow(dat) == 0) {
-    stop("Error: Google Sheet is empty.")
-  }
-
-  message("Read ", nrow(dat), " rows from Google Sheet")
-
-  # Save raw CSV
+  message("Writing ", nrow(dat), " raw transactions")
   if (!dir.exists(output_dir)) {
     dir.create(output_dir, recursive = TRUE)
     message("Created directory: ", output_dir)
   }
-
   raw_csv <- file.path(output_dir, "transactions_raw.csv")
-  utils::write.csv(dat, raw_csv, row.names = FALSE, na = "")
-  message("Saved raw CSV: ", raw_csv)
+  data.table::fwrite(dat, raw_csv, sep = ";", dec = ",", na = "", row.names = FALSE)
 
   # Process transactions
   message("Processing transactions...")
