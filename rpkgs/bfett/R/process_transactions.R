@@ -94,7 +94,7 @@ process_transactions <- function(transactions, output_dir=NULL, verbose=FALSE, t
 					Sys.sleep(1)
 				}
 			}
-			if(size-sum(open_pos[[isin]][["size"]][1:j]) > tol_amount) stop("more sold (", size, ") than bought (", sum(open_pos[[isin]][["size"]][1:j]), " isin=", isin)
+			if(size-sum(open_pos[[isin]][["size"]][1:j]) > tol_amount) stop("more sold (", size, ") than bought (", sum(open_pos[[isin]][["size"]][1:j]), "), isin=", isin)
 			ans <- open_pos[[isin]][1:j,c("isin", "buy_price", "buy_date", "size")]
 			if(j==1) {
 				ans[["size"]][1] <- size
