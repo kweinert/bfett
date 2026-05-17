@@ -22,7 +22,7 @@ val_irr <- function(con, portfolio, trans=NULL, current_value=NULL) {
 					WHEN type = 'withdrawal' THEN -amount 
 					ELSE amount 
 				END AS amount,
-			FROM transactions t 
+			FROM staging.transactions t 
 			WHERE portfolio='", portfolio, "' AND (t.type='deposit' OR t.type='withdrawal');"
 		)
 		trans <- DBI::dbGetQuery(con, stmt)

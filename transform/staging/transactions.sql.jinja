@@ -1,0 +1,6 @@
+SELECT * FROM read_csv_auto(
+    '{{ env["TRANSACTIONS_RAW_DIR"] }}/transactions_raw.csv',
+    delim=';', decimal_separator=',', na=''
+)
+-- #NO_NULLS isin, portfolio, size, date, amount, broker, type
+-- #SET{'buy','sell','deposit','withdrawal','other'} type

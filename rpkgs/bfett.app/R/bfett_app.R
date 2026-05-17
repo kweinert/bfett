@@ -13,7 +13,7 @@
 bfett_app <- function(con=NULL) {
 	if(is.null(con)) con <- DBI::dbConnect(
 		duckdb::duckdb(),
-		dbdir="~/Dbtspace/bfett/database/bfett_dev.duckdb",
+		dbdir=Sys.getenv("LEA_DUCKDB_PATH", unset = file.path(getwd(), "data", "bfett.duckdb")),
 		read_only=TRUE
 	)
 	
@@ -40,7 +40,6 @@ bfett_app <- function(con=NULL) {
       ),
 	  overview_ui(id="overview"),
 	  treemap_ui(id="treemap"),
-	  rebal_ui(id="rebal"),
 	  bslib::nav_spacer(),
 	  pfolioselector_ui("portfolio", con=con)
 	)
@@ -52,7 +51,6 @@ bfett_app <- function(con=NULL) {
 		pfolioselector_srv(id="portfolio", r=r)
 		overview_srv(id="overview", r=r)
 		treemap_srv(id="treemap", r=r)	
-		rebal_srv(id="rebal", r=r)
 	}
 
 	shiny::shinyApp(ui = ui, server = server)

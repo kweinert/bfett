@@ -1,0 +1,7 @@
+SELECT * FROM read_csv_auto(
+    '{{ env["TRANSACTIONS_RAW_DIR"] }}/isin_info.csv',
+    delim=';', decimal_separator=',', na=''
+)
+-- #UNIQUE isin
+-- #NO_NULLS isin, name
+-- #SET{'AKTIE','EXCHANGE','FONDS','BONDS'} gattung

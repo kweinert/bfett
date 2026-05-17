@@ -9,7 +9,7 @@
 #' @export
 pfolioselector_ui <- function(id, con) {
 	ns <- shiny::NS(id)
-	pfolio <- DBI::dbGetQuery(con, "select distinct portfolio from transactions;")[, "portfolio"]
+	pfolio <- DBI::dbReadTable(con, "mart.portfolios")[["name"]]
 	bslib::nav_item(
 		shiny::selectInput(
 		  inputId = ns("portfolio"),

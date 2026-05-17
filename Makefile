@@ -1,34 +1,25 @@
-.PHONY: help ingest db transform all clean shell
+.PHONY: help ingest transform all
 
-# Standard-Target (zeigt Hilfe)
 help:
 	@echo "bfett Makefile"
 	@echo ""
-	@echo "Verfügbare Targets:"
-	@echo "  make ingest      → Prüft auf neue Daten und lädt sie"
-	@echo "  make db          → Aktualisiert die DuckDB (Lea-Transformationen)"
-	@echo "  make transform   → Alias für 'db' (klarer Name)"
-	@echo "  make all         → ingest + db (kompletter Refresh)"
+	@echo "  make ingest     → Prüft auf neue Daten und lädt sie"
+	@echo "  make transform  → Inkrementelles Lea-Update (DuckDB)"
+	@echo "  make all        → ingest + transform"
 	@echo ""
-	
 
-# Prüft auf neue Daten und lädt sie
 ingest:
 	Rscript ingest/lsx_trades.R
 	Rscript ingest/transactions.R
-	@echo "✅ Ingestion abgeschlossen (neue Tick-Trades + Google Sheets Sync)"
+	Rscript ingest/universe.R
+	@echo "✅ Ingestion abgeschlossen"
 
-# Aktualisiert die DuckDB – führt alle Lea-Transformationen aus
-# (staging → core → marts)
-db:
-	echo "NIY"
-	@echo "✅ DuckDB aktualisiert (Lea run abgeschlossen)"
+transform:
+	touch transform/staging/*.sql.jinja transform/core/*.sql transform/mart/*.sql
+	lea run --scripts transform --incremental calendar_week $$(date +%G-%V)
+	@echo "✅ Transformationen abgeschlossen (Lea)"
 
-# Klarerer Alias (empfohlen für die Zukunft)
-transform: db
-
-# Kompletter Lauf (z.B. für manuelle Weekly-Updates)
-all: ingest db
+all: ingest transform
 	@echo "✅ Vollständiger Update durchgeführt (ingest + transform)"
 
 

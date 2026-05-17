@@ -8,8 +8,8 @@
 #' @export
 overview_srv <- function(id, r, verbose=FALSE) 
   shiny::moduleServer(id=id, function(input, output, session) {
-		all_apos <- shiny::reactive(DBI::dbReadTable(r$con, "active_positions_weekly"))
-		all_cash <- shiny::reactive(DBI::dbReadTable(r$con, "cash_weekly"))
+		all_apos <- shiny::reactive(DBI::dbReadTable(r$con, "mart.active_positions_weekly"))
+		all_cash <- shiny::reactive(DBI::dbReadTable(r$con, "mart.cash_weekly"))
 		
 		apos <- shiny::reactive({
 			shiny::req(r$portfolio)
