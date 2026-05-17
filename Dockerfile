@@ -17,12 +17,12 @@ RUN apt-get update && apt-get install -y \
     software-properties-common \
     git \
     && add-apt-repository -y ppa:deadsnakes/ppa \
-    && apt-get update && apt-get install -y python3.12 python3.12-venv \
+    && apt-get update && apt-get install -y python3.14 python3.14-venv \
     && rm -rf /var/lib/apt/lists/*
 
 ## lea
-RUN python3.12 -c "import sys; v = sys.version_info; assert (v.major, v.minor) >= (3, 12), f'Python {v.major}.{v.minor} < 3.12'"
-RUN python3.12 -m venv /opt/lea-venv
+RUN python3.14 -c "import sys; v = sys.version_info; assert (v.major, v.minor) >= (3, 14), f'Python {v.major}.{v.minor} < 3.14'"
+RUN python3.14 -m venv /opt/lea-venv
 RUN /opt/lea-venv/bin/pip install --upgrade pip
 RUN /opt/lea-venv/bin/pip install lea-cli duckdb
 ENV PATH="/opt/lea-venv/bin:${PATH}"
