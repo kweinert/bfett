@@ -1,5 +1,5 @@
 SELECT * FROM read_csv_auto(
     '{{ env["TRANSACTIONS_RAW_DIR"] }}/cash.csv',
-    delim=';', decimal_separator=',', na=''
+    delim=';', decimal_separator=','
 )
 -- #NO_NULLS date, cash, portfolio
