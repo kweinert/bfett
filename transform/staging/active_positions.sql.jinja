@@ -1,0 +1,5 @@
+SELECT * FROM read_csv_auto(
+    '{{ env["TRANSACTIONS_RAW_DIR"] }}/active_positions.csv',
+    delim=';', decimal_separator=',', na=''
+)
+-- #NO_NULLS isin, portfolio, size, buy_date, buy_price

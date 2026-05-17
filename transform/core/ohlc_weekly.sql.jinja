@@ -1,0 +1,31 @@
+WITH trades_with_week AS (
+    SELECT t.isin, t.trade_time, t.price, w.calendar_week
+    FROM read_parquet('{{ env["LSX_RAW_DIR"] }}/*.parquet') t
+    JOIN core.weeks w ON t.trade_time BETWEEN w.from_date AND w.until_date
+    WHERE t.isin IN (SELECT isin FROM core.instruments)
+      AND t.trade_time >= CURRENT_DATE - 14
+),
+weekly_ohlc AS (
+    SELECT
+        isin,
+        calendar_week,
+        FIRST_VALUE(price) OVER (PARTITION BY isin, calendar_week ORDER BY trade_time) AS open,
+        LAST_VALUE(price) OVER (PARTITION BY isin, calendar_week ORDER BY trade_time
+                                ROWS BETWEEN UNBOUNDED PRECEDING AND UNBOUNDED FOLLOWING) AS close,
+        MAX(price) OVER (PARTITION BY isin, calendar_week) AS high,
+        MIN(price) OVER (PARTITION BY isin, calendar_week) AS low
+    FROM trades_with_week
+    QUALIFY ROW_NUMBER() OVER (PARTITION BY isin, calendar_week ORDER BY trade_time DESC) = 1
+)
+SELECT
+    isin,
+    -- #INCREMENTAL
+    calendar_week,
+    open,
+    close,
+    high,
+    low,
+    LAG(close) OVER (PARTITION BY isin ORDER BY calendar_week) AS previous_close
+FROM weekly_ohlc
+ORDER BY isin, calendar_week
+-- #NO_NULLS isin, calendar_week, open, close, high, low
