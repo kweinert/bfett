@@ -28,9 +28,8 @@
 read_gsheet <- function(spreadsheet_id,
                         gid = 0,
                         json_key_path = "service-account-key.json") {
-
+  message("Authenticating..")
   key <- fromJSON(json_key_path)
-
   claim <- jwt_claim(
     iss   = key$client_email,
 	scope = "https://www.googleapis.com/auth/spreadsheets.readonly https://www.googleapis.com/auth/drive.readonly",
@@ -38,12 +37,7 @@ read_gsheet <- function(spreadsheet_id,
     exp   = as.integer(Sys.time()) + 3600,
     iat   = as.integer(Sys.time())
   )
-
-  jwt <- jwt_encode_sig(
-    claim = claim,
-    key   = read_key(key$private_key)
-  )
-
+  jwt <- jwt_encode_sig(claim = claim, key = read_key(key$private_key))
   token_resp <- POST(
     url = "https://oauth2.googleapis.com/token",
     body = list(
@@ -52,22 +46,13 @@ read_gsheet <- function(spreadsheet_id,
     ),
     encode = "form"
   )
-
   token <- content(token_resp, "parsed")$access_token
+  if (is.null(token)) stop("Failed to retrieve access token from Google")
 
-  if (is.null(token)) {
-    stop("Failed to retrieve access token from Google")
-  }
-
-  url <- paste0("https://docs.google.com/spreadsheets/d/", spreadsheet_id,
-                "/export?format=csv&gid=", gid)
-
+  message("Reading...")
+  url <- paste0("https://docs.google.com/spreadsheets/d/", spreadsheet_id, "/export?format=tsv&gid=", gid)
   resp <- GET(url, add_headers(Authorization = paste("Bearer", token)))
-
-  if (http_error(resp)) {
-    stop(paste("HTTP error", status_code(resp), "-", content(resp, "text")))
-  }
-
+  if (http_error(resp)) stop(paste("HTTP error", status_code(resp), "-", content(resp, "text")))
   raw_csv <- content(resp, "text")
-  data.table::fread(text = raw_csv)
+  data.table::fread(text = raw_csv, sep="\t", dec=",")
 }
