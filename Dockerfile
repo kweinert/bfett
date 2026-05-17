@@ -14,15 +14,14 @@ RUN apt-get update && apt-get install -y \
 	poppler-data \
     curl \
     jq \
-    python3 \
-    python3-pip \
-    python3-venv \
+    python3.12 \
+    python3.12-venv \
     git \
     && rm -rf /var/lib/apt/lists/*
 
 ## lea
-RUN python3 -c "import sys; v = sys.version_info; assert (v.major, v.minor) >= (3, 12), f'Python {v.major}.{v.minor} < 3.12'"
-RUN python3 -m venv /opt/lea-venv
+RUN python3.12 -c "import sys; v = sys.version_info; assert (v.major, v.minor) >= (3, 12), f'Python {v.major}.{v.minor} < 3.12'"
+RUN python3.12 -m venv /opt/lea-venv
 RUN /opt/lea-venv/bin/pip install --upgrade pip
 RUN /opt/lea-venv/bin/pip install lea-cli duckdb
 ENV PATH="/opt/lea-venv/bin:${PATH}"
