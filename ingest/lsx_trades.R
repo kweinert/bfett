@@ -74,7 +74,7 @@ download_csv_gz <- function(url, dest_path) {
 }
 
 convert_to_parquet <- function(csv_gz_path, parquet_path) {
-    dt <- fread(csv_gz_path)
+    dt <- fread(csv_gz_path, dec = ",")
 	if(!inherits(dt, "data.table") || nrow(dt)==0) stop("error reading ", csv_gz_path)
 
 	csv_gz_name <- basename(csv_gz_path)
