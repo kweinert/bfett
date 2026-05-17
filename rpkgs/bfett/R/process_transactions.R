@@ -35,8 +35,8 @@ process_transactions <- function(transactions, output_dir=NULL, verbose=FALSE, t
 	stopifnot(dir.exists(output_dir))
 	
 	# remove unneeded information, enforce data.table
-	transactions <- transactions[,req_cn]
 	setDT(transactions)
+	transactions <- transactions[, ..req_cn]
 	
 	# cash is basically a cumsum()
 	one_portf_cash <- function(dat) {

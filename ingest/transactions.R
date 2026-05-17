@@ -11,19 +11,18 @@ main <- function() {
   message("Reading configuration")
   if (!file.exists(".env")) stop("Error: .env file not found.")
   readRenviron(".env")
-  sheet_url <- Sys.getenv("TRANSACTIONS_SHEET_URL")
+  sheet_id <- Sys.getenv("TRANSACTIONS_SHEET_ID")
   json_key_path <- Sys.getenv("GOOGLE_SERVICE_ACCOUNT_KEY")
   output_dir <- Sys.getenv("TRANSACTIONS_RAW_DIR")
   gid <- as.integer(Sys.getenv("TRANSACTIONS_SHEET_GID", unset = "0"))
 
-  if (sheet_url == "") stop("Error: Missing TRANSACTIONS_SHEET_URL environment variable. Check .env file.")
+  if (sheet_id == "") stop("Error: Missing TRANSACTIONS_SHEET_ID environment variable. Check .env file.")
   if (json_key_path == "") stop("Error: Missing GOOGLE_SERVICE_ACCOUNT_KEY environment variable. Check .env file.")
   if (output_dir == "") stop("Error: Missing TRANSACTIONS_RAW_DIR environment variable. Check .env file.")
 
   message("Reading Google Sheet")
-  spreadsheet_id <- sub(".*spreadsheets/d/([^/]+).*", "\\1", sheet_url)
   dat <- bfett::read_gsheet(
-    spreadsheet_id = spreadsheet_id,
+    spreadsheet_id = sheet_id,
     gid = gid,
     json_key_path = json_key_path
   )

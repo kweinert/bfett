@@ -1,21 +1,25 @@
 library(tinytest)
+
 env_fn <- "/home/faucet/.env"
+if(!file.exists(env_fn)) exit_file("Skipping: no .env file found.")
+
 readRenviron(env_fn)
-sheet_url <- Sys.getenv("TRANSACTIONS_SHEET_URL")
+sheet_id <- Sys.getenv("TRANSACTIONS_SHEET_ID")
 json_key_path <- Sys.getenv("GOOGLE_SERVICE_ACCOUNT_KEY")
+if (sheet_id == "" || json_key_path == "") expect_error(
+	dat <- read_gsheet(
+	  spreadsheet_id = sheet_id,
+	  gid            = 0,
+	  json_key_path  = json_key_path
+	)
+)
 
-if (sheet_url == "" || json_key_path == "") {
-  exit_file("Skipping: missing credentials in .env")
-}
-
-spreadsheet_id <- sub(".*spreadsheets/d/([^/]+).*", "\\1", sheet_url)
-
+# this must work inside the container
 dat <- read_gsheet(
-  spreadsheet_id = spreadsheet_id,
+  spreadsheet_id = sheet_id,
   gid            = 0,
   json_key_path  = json_key_path
 )
-
 expect_true(inherits(dat, "data.table"))
 expect_true(nrow(dat) > 0)
 expect_true(ncol(dat) >= 8)

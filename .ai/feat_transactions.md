@@ -28,15 +28,19 @@ transactions <- utils::read.csv(transactions, na.strings="")
 transactions <- fread(transactions, sep = ";", dec = ",", na.strings = "")
 ```
 
-### 3. `setDT` call (line 37)
+### 3. `setDT` call (line 37) and column subset (line 38)
 
 ```r
 # Before:
+transactions <- transactions[,req_cn]
 data.table::setDT(transactions)
 
 # After:
 setDT(transactions)
+transactions <- transactions[, ..req_cn]
 ```
+
+The `..req_cn` prefix tells data.table that `req_cn` is a variable in the calling scope, not a column name. `setDT()` must come first so `transactions` is a data.table when `..req_cn` is evaluated.
 
 ### 4. Outer `split()` calls (lines 47, 116)
 
