@@ -14,9 +14,10 @@ RUN apt-get update && apt-get install -y \
 	poppler-data \
     curl \
     jq \
-    python3.12 \
-    python3.12-venv \
+    software-properties-common \
     git \
+    && add-apt-repository -y ppa:deadsnakes/ppa \
+    && apt-get update && apt-get install -y python3.12 python3.12-venv \
     && rm -rf /var/lib/apt/lists/*
 
 ## lea
