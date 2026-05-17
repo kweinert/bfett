@@ -1,6 +1,6 @@
 SELECT * FROM read_csv_auto(
     '{{ env["TRANSACTIONS_RAW_DIR"] }}/isin_info.csv',
-    delim=';', decimal_separator=','
+    delim=',', decimal_separator='.'
 )
 -- #UNIQUE isin
 -- #NO_NULLS isin, name
